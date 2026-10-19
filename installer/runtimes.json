@@ -1,0 +1,58 @@
+[
+  {
+    "id": "node",
+    "name": "Node.js 24.19.0",
+    "url": "https://nodejs.org/dist/v24.19.0/node-v24.19.0-win-x64.zip",
+    "bytes": 37304352,
+    "sha256": "57f71ab3652e797d84acddc79c81cc9ff1c6ddb2a1974cdb83f00fee9bff4c73",
+    "license": "MIT and others (licenses/node-LICENSE.txt)",
+    "dest": "runtime",
+    "copy": {"node.exe": "node.exe"},
+    "check": "runtime/node.exe"
+  },
+  {
+    "id": "sd",
+    "name": "stable-diffusion.cpp master-970-2f016e8 (Vulkan)",
+    "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-970-2f016e8/sd-master-2f016e8-bin-win-vulkan-x64.zip",
+    "bytes": 30164424,
+    "sha256": "c9ce9278c43fae4dd8e07baab7bab02aa7ef8893ed6f4d9f4494a2c709becc86",
+    "license": "MIT",
+    "dest": "runtime/sd",
+    "copy": {"*": "."},
+    "check": "runtime/sd/sd-cli.exe"
+  },
+  {
+    "id": "llama",
+    "name": "llama.cpp b11669 (Vulkan)",
+    "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-win-vulkan-x64.zip",
+    "bytes": 32182350,
+    "sha256": "2c07574e7bde71321cb785282b20cc821e951132149eeceeea32ddebdbf0598e",
+    "license": "MIT",
+    "dest": "runtime/llama",
+    "copy": {"*": "."},
+    "check": "runtime/llama/llama-mtmd-cli.exe"
+  },
+  {
+    "id": "ffmpeg",
+    "name": "FFmpeg 9.0.2 full build (gyan.dev)",
+    "url": "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-full_build.zip",
+    "bytes": 257736868,
+    "sha256": "759d0a9831c436a0eb331ad36f236c06cb04aaa0005da46571f0e9d3d9206f6b",
+    "license": "GPL-3.0",
+    "dest": "runtime/ffmpeg",
+    "copy": {"bin/ffmpeg.exe": "ffmpeg.exe", "bin/ffprobe.exe": "ffprobe.exe", "LICENSE": "LICENSE", "README.txt": "README.txt"},
+    "check": "runtime/ffmpeg/ffprobe.exe"
+  },
+  {
+    "id": "ollama",
+    "name": "Ollama 0.33.3 (Vulkan only; CUDA folders are skipped)",
+    "url": "https://github.com/ollama/ollama/releases/download/v0.33.3/ollama-windows-amd64.zip",
+    "bytes": 1469175900,
+    "sha256": "52cb36a62e7e501f61514f60212dec7117b6c098811357585e02fffe32d2fcd7",
+    "license": "MIT",
+    "dest": "runtime/ollama",
+    "exclude": ["lib/ollama/cuda_v12", "lib/ollama/cuda_v13"],
+    "copy": {"*": "."},
+    "check": "runtime/ollama/lib/ollama/vulkan/ggml-vulkan.dll"
+  }
+]
