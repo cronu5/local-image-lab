@@ -22,6 +22,11 @@ export async function rollingReference({root,clips,seconds,dir,ffmpeg,run,audio}
   return output;
 }
 
+// Joins get a short dissolve of picture and sound so each cut feels less abrupt. Pieces keep
+// their sound as PCM, because AAC adds a tiny gap at the start of every separately encoded piece.
+const BLEND_FRAMES=6;
+const pieceCodec=audio=>['-c:v','libx264','-preset','fast','-crf','12','-pix_fmt','yuv420p',...(audio?['-c:a','pcm_s16le','-ar','48000']:[])];
+
 export async function mergeSession({root,session,dir,ffmpeg,run,onProgress}) {
   const {clips,id,width,height,audio,overlapFrames=0,targetSeconds}=session;
   if(!clips.length) throw Error('There are no completed clips to merge yet.');
@@ -31,16 +36,31 @@ export async function mergeSession({root,session,dir,ffmpeg,run,onProgress}) {
     await inspectVideo({root,run,file:outputFile(root,clip.filename),width,height,frames:clip.frames,audio});
   }
   const mergeDir=path.join(dir,'merge'); fs.mkdirSync(mergeDir,{recursive:true});
-  const entries=[];
+  const entries=[], skip=i=>i?overlapFrames:0;
+  const blend=clips.length>1&&session.smoothJoins!==false&&clips.every((c,i)=>c.frames-skip(i)>3*BLEND_FRAMES)?BLEND_FRAMES:0;
   try {
     for(let i=0;i<clips.length;i++){
       onProgress?.(`Preparing clip ${i+1} of ${clips.length} for merging…`);
-      const clip=clips[i], source=outputFile(root,clip.filename), frames=clip.frames-(i?overlapFrames:0);
-      let piece=source;
-      if(i && overlapFrames){piece=path.join(mergeDir,'piece-'+i+'.mp4');await run(ffmpeg,[...mediaInput(source,audio),'-vf',`trim=start_frame=${overlapFrames},setpts=PTS-STARTPTS`,...(audio?['-af',`atrim=start=${overlapFrames/24},asetpts=PTS-STARTPTS`]:[]),'-t',String(frames/24),...encodeVideo,piece]);}
-      entries.push(`file '${quote(piece)}'\nduration ${frames/24}\n`);
+      const clip=clips[i], source=outputFile(root,clip.filename), last=i===clips.length-1;
+      if(!blend){
+        const frames=clip.frames-skip(i);let piece=source;
+        if(i && overlapFrames){piece=path.join(mergeDir,'piece-'+i+'.mp4');await run(ffmpeg,[...mediaInput(source,audio),'-vf',`trim=start_frame=${overlapFrames},setpts=PTS-STARTPTS`,...(audio?['-af',`atrim=start=${overlapFrames/24},asetpts=PTS-STARTPTS`]:[]),'-t',String(frames/24),...encodeVideo,piece]);}
+        entries.push(`file '${quote(piece)}'\nduration ${frames/24}\n`);
+        continue;
+      }
+      // The middle of the clip, minus the frames that go into the dissolves on either side.
+      const start=skip(i)+(i?blend:0), end=clip.frames-(last?0:blend), piece=path.join(mergeDir,'piece-'+i+'.mkv');
+      await run(ffmpeg,[...mediaInput(source,audio),'-vf',`trim=start_frame=${start}:end_frame=${end},setpts=PTS-STARTPTS`,...(audio?['-af',`atrim=start=${start/24}:end=${end/24},asetpts=PTS-STARTPTS,apad`]:[]),'-frames:v',String(end-start),'-t',String((end-start)/24),...pieceCodec(audio),piece]);
+      entries.push(`file '${quote(piece)}'\nduration ${(end-start)/24}\n`);
+      if(last) break;
+      // The dissolve: this clip's final frames fade into the next clip's opening frames.
+      const nextSource=outputFile(root,clips[i+1].filename), from=skip(i+1), join=path.join(mergeDir,'join-'+i+'.mkv'), seconds=blend/24;
+      const picture=`[0:v]trim=start_frame=${clip.frames-blend}:end_frame=${clip.frames},setpts=PTS-STARTPTS[v0];[1:v]trim=start_frame=${from}:end_frame=${from+blend},setpts=PTS-STARTPTS[v1];[v0][v1]xfade=transition=fade:duration=${seconds}:offset=0,tpad=stop_mode=clone:stop=${blend}[v]`;
+      const sound=`;[0:a]atrim=start=${(clip.frames-blend)/24}:end=${clip.frames/24},asetpts=PTS-STARTPTS[a0];[1:a]atrim=start=${from/24}:end=${(from+blend)/24},asetpts=PTS-STARTPTS[a1];[a0][a1]acrossfade=d=${seconds},apad[a]`;
+      await run(ffmpeg,['-nostdin','-y','-i',source,'-i',nextSource,'-filter_complex',picture+(audio?sound:''),'-map','[v]',...(audio?['-map','[a]']:['-an']),'-frames:v',String(blend),'-t',String(seconds),...pieceCodec(audio),join]);
+      entries.push(`file '${quote(join)}'\nduration ${seconds}\n`);
     }
-    const available=clips.reduce((n,c)=>n+c.frames,0)-(clips.length-1)*overlapFrames;
+    const available=clips.reduce((n,c,i)=>n+c.frames-skip(i),0)-(clips.length-1)*blend;
     const renderId=fs.existsSync(outputFile(root,`videos/${id}/${id}.mp4`))?id+'-merged-'+Date.now():id;
     const frames=Math.min(available,targetSeconds==null?available:targetSeconds*24), rel=`videos/${id}/${renderId}.mp4`;
     const output=outputFile(root,rel), poster=output.replace(/\.mp4$/,'.jpg'), temp=path.join(mergeDir,'merged.mp4'), thumb=path.join(mergeDir,'merged.jpg'), list=path.join(mergeDir,'join.txt');
