@@ -5,7 +5,8 @@ import {spawn} from 'node:child_process';
 import {randomInt} from 'node:crypto';
 import {directorState} from './video-director.mjs';
 import {validateClipSettings,validateSceneCount,controllerStateFromSession} from './video-settings.mjs';
-import {createVideoRun} from './video-generation.mjs';
+import {createVideoRun,TURBO_FILE} from './video-generation.mjs';
+import {OUTLINE_MODES} from './video-outline.mjs';
 import {validateReferences} from './video-references.mjs';
 import {createMergeRun} from './video-merge.mjs';
 import {outputFile,publicVideo,listSessions,readSession,sessionFolder} from './video-storage.mjs';
@@ -19,7 +20,7 @@ export function createVideoEngine({root,isOtherBusy,spawnProcess=spawn,now=Date.
  const manifest=JSON.parse(fs.readFileSync(path.join(root,'video-model-downloads.json'),'utf8'));
  const referenceDiffusion='minimax_h3_ref2va_pruned-Q4_K_M.gguf';
  let referenceManifest=[];try{referenceManifest=JSON.parse(fs.readFileSync(path.join(root,'video-reference-downloads.json'),'utf8'));}catch{}
- let job=null,active=null;
+ let job=null,active=null,currentBatch=null;
  const fail=(message,status=400)=>{const e=new Error(message);e.status=status;throw e;};
  function download(){const entries=['video-download-progress.json','video-reference-download-progress.json'].flatMap(name=>{try{return [JSON.parse(fs.readFileSync(path.join(logs,name),'utf8'))];}catch{return [];}});if(!entries.length)return null;const totalBytes=entries.reduce((n,p)=>n+p.totalBytes,0),downloadedBytes=entries.reduce((n,p)=>n+p.downloadedBytes,0),bytesPerSecond=entries.reduce((n,p)=>n+(Date.now()-Date.parse(p.updatedAt)<45000&&p.downloadedBytes<p.totalBytes?p.bytesPerSecond||0:0),0);return {totalBytes,downloadedBytes,bytesPerSecond,etaSeconds:bytesPerSecond?(totalBytes-downloadedBytes)/bytesPerSecond:null,updatedAt:entries.map(p=>p.updatedAt).sort().at(-1),files:entries.flatMap(p=>p.files||[])};}
  function ready(reference=false){const names=[reference?referenceDiffusion:files.diffusion,files.encoder,files.vae,files.audio];return names.every(file=>{try{return fs.statSync(path.join(folder,file)).size===[...manifest,...referenceManifest].find(f=>f.file.endsWith('/'+file)).bytes;}catch{return false;}})&&[cli,ffmpeg,path.join(root,'runtime/ffmpeg/ffprobe.exe')].every(file=>fs.existsSync(file));}
@@ -43,7 +44,8 @@ export function createVideoEngine({root,isOtherBusy,spawnProcess=spawn,now=Date.
   const shape=data.shape||'landscape';if(!['landscape','portrait','square'].includes(shape))fail('Choose a video shape.');
   let [width,height]=size;if(shape==='portrait')[width,height]=[height,width];if(shape==='square')width=height;
   let frames=Number(data.frames??124);if(!FRAME_CHOICES.includes(frames))fail('Choose an available duration.');
-  const settings=validateClipSettings(data),steps=settings.steps;if(continuous&&settings.continuationStyle==='guided')frames=Math.max(124,frames);
+  const settings=validateClipSettings(data),steps=settings.steps;
+  if(settings.turbo!=='off'&&!fs.existsSync(path.join(folder,TURBO_FILE)))fail('Turbo needs its LoRA file (780 MB). Run Install.cmd again (or "Resume video downloads.cmd") to fetch it, or turn Turbo off.',409);if(continuous&&settings.continuationStyle==='guided')frames=Math.max(124,frames);
   if(continuous&&settings.continuationStyle==='guided'&&!directorState(root).ready)fail('Guided continuation is still installing its story helpers. Choose Image only or wait for it to finish.',409);
   let seed=Number(data.seed??-1);if(!Number.isInteger(seed)||seed< -1||seed>2147483647)fail('Seed must be -1 or a whole number up to 2147483647.');if(seed===-1)seed=randomInt(2147483648);settings.seed=seed;
   const refs=mode==='references'?validateReferences(data,{root,fail,decodeImage}):{images:[],video:null,audio:null,includeVideoAudio:true};
@@ -65,8 +67,20 @@ export function createVideoEngine({root,isOtherBusy,spawnProcess=spawn,now=Date.
   const overlapFrames=1,totalClips=!continuous?1:sceneCount!==null?sceneCount:targetSeconds===null?null:Math.max(1,1+Math.ceil((targetSeconds*24-frames)/(frames-overlapFrames)));
   const continuationPrompt=String(data.continuationPrompt||'').trim();if(continuationPrompt.length>7000)fail('Keep the continuation prompt under 7,000 characters.');
   if(continuous&&settings.continuationStyle==='custom'&&!continuationPrompt&&!prompt)fail('Enter a custom continuation prompt, or choose Image only.');
-  let handle;handle=createVideoRun({root,cli,ffmpeg,folder,files,referenceDiffusion,spawnProcess,now,keepAwake,freeBytes,request:{settings,prompt,blankPrompt,continuationPrompt,mode,size:data.size,shape,width,height,frames,steps,seed,audio:data.audio!==false,first,last,refs,continuous,continuity,overlapFrames,endMode,sceneCount,targetSeconds,totalClips,runtimeHours,mergeWhenDone,referenceSeconds,referenceLastFrame,runName},onDone(){if(active===handle)active=null;}});
-  job=handle.job;active=handle;return {...job};
+  const count=continuous?1:Number(data.count??1);if(!Number.isInteger(count)||count<1||count>4)fail('Choose 1 to 4 videos.');
+  const outlineMode=continuous?String(data.storyOutline??'off'):'off';if(!OUTLINE_MODES.includes(outlineMode))fail('Choose a story outline option.');
+  const request={settings,prompt,blankPrompt,continuationPrompt,mode,outlineMode,size:data.size,shape,width,height,frames,steps,seed,audio:data.audio!==false,first,last,refs,continuous,continuity,overlapFrames,endMode,sceneCount,targetSeconds,totalClips,runtimeHours,mergeWhenDone,referenceSeconds,referenceLastFrame,runName};
+  // Several single clips run one after another (the GPU fits one), each with the next seed. Cancel stops the rest.
+  const batch=currentBatch={count,cancelled:false};
+  const launch=index=>{
+   const clipSeed=(seed+index-1)%2147483648;
+   let handle;handle=createVideoRun({root,cli,ffmpeg,folder,files,referenceDiffusion,spawnProcess,now,keepAwake,freeBytes,request:{...request,seed:clipSeed,settings:{...settings,seed:clipSeed},batch:{index,count}},onDone(){
+    if(active===handle)active=null;
+    if(index<count&&!batch.cancelled&&handle.job.status==='complete')setTimeout(function next(){if(batch.cancelled||active)return;if(isOtherBusy())return setTimeout(next,5000);try{launch(index+1);}catch{}},1000);
+   }});
+   job=handle.job;active=handle;return handle;
+  };
+  return {...launch(1).job};
  }
  function update(data){if(!active?.update||!data||data.id!==job.id)fail('This run is no longer active. Refresh its status before applying changes.',409);if(data.clear!==true&&data.settings?.continuationStyle==='guided'&&!directorState(root).ready)fail('The local story helpers are still downloading. Try Guided once they are ready.',409);return active.update(data);}
  function resume(data){
@@ -91,7 +105,7 @@ export function createVideoEngine({root,isOtherBusy,spawnProcess=spawn,now=Date.
   const request={...saved,runName:saved.name,frames,settings,controllerState,resumeSession,sceneCount,totalClips:sceneCount,first:null,last:null,refs:{images:[],video:null,audio:null,includeVideoAudio:true},targetSeconds:null,runtimeHours:null,seed:settings.seed,steps:settings.steps};
   let handle;handle=createVideoRun({root,cli,ffmpeg,folder,files,referenceDiffusion,spawnProcess,now,keepAwake,freeBytes,request,onDone(){if(active===handle)active=null;}});job=handle.job;active=handle;return {...job};
  }
- function cancel(){active?.cancel();return {ok:true};}
+ function cancel(){active?.cancel();if(currentBatch)currentBatch.cancelled=true;return {ok:true};}
  function finish(){active?.finish();return {ok:true};}
  function merge(data){if(active||isOtherBusy())fail('Wait for the current task to finish before merging.',409);const session=readSession(root,data?.id);if(!session.clips.length)fail('This run has no completed clips to merge.');let handle;handle=createMergeRun({root,session,ffmpeg,spawnProcess,keepAwake,onDone(){if(active===handle)active=null;}});active=handle;job=handle.job;return {...job};}
  function openSession(data){const session=readSession(root,data?.id);spawn('explorer.exe',[sessionFolder(root,session.id)],{windowsHide:true,detached:true,stdio:'ignore'}).unref();return {ok:true};}

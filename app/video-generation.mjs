@@ -6,12 +6,19 @@ import {prepareReferenceArgs} from './video-references.mjs';
 import {outputFile,publicVideo,saveVideo,saveSession,sessionFolder,removeWork} from './video-storage.mjs';
 import {encodeVideo,mediaInput,inspectVideo,mergeSession} from './video-media.mjs';
 
-import {planContinuation,planOpening,DIRECTOR_VERSION} from './video-director.mjs';
+import {planContinuation,planOpening,planOutline,DIRECTOR_VERSION} from './video-director.mjs';
+import {randomTheme} from './video-outline.mjs';
 import {createClipController,storyPhase,validateSceneCount} from './video-settings.mjs';
 
 // Every clip makes its own soundtrack, so music changes or cuts out at each cut. Natural sound
 // only asks every prompted movie clip for the same kind of sound; empty prompts stay empty.
 const SOUND_LINE=' Sound: only the natural sounds of the scene itself, such as ambience, movement and effects; no music, no score, no singing, no talking or voices.';
+// A Braille blank: it looks empty but is a real character, so the encoder accepts it and the model
+// gets almost no direction. Each seed gives something completely different.
+export const ZERO_PROMPT='⠀';
+// Community step-distill LoRA for H3 (larryvrh/MiniMax-H3-Turbo-Lora, Apache-2.0), relative to the model folder.
+export const TURBO_FILE='loras/minimax_h3_turbo_v4_step600_ema.safetensors';
+const TURBO_TAG='<lora:minimax_h3_turbo_v4_step600_ema:1>';
 export const withMovieSound=(prompt,{continuous,audio,movieSound})=>!continuous||!audio||movieSound==='model'||!prompt.trim()?prompt:prompt.trimEnd()+SOUND_LINE;
 
 export function createVideoRun({root,cli,ffmpeg,folder,files,referenceDiffusion,spawnProcess,request,onDone,now=Date.now,keepAwake=()=>()=>{},freeBytes=()=>Infinity}){
@@ -27,16 +34,16 @@ export function createVideoRun({root,cli,ffmpeg,folder,files,referenceDiffusion,
  const promptFile=path.join(dir,'prompt.txt');fs.writeFileSync(promptFile,prompt);
  const common={mediaType:'video',modelId:'minimax-h3',modelName:'MiniMax H3',prompt,blankPrompt,mode,size,shape,width,height,frames,fps:24,seconds:frames/24,steps,seed,audio};
  const startedAt=resumeSession?.startedAt||now(),deadlineAt=continuous&&endMode==='runtime'?startedAt+runtimeHours*3600000:null;
- const job={...common,id,continuous,continuity,continuationPrompt,endMode,sceneCount,targetSeconds,totalClips,runtimeHours,deadlineAt,mergeWhenDone,referenceSeconds,referenceLastFrame,runName,clipFrames:frames,clipIndex:0,completedClips:0,completedSeconds:0,status:'loading',message:'Loading video components…',progress:null,startedAt};
+ const job={...common,id,continuous,continuity,continuationPrompt,endMode,sceneCount,targetSeconds,totalClips,runtimeHours,deadlineAt,mergeWhenDone,referenceSeconds,referenceLastFrame,runName,batch:request.batch||null,clipFrames:frames,clipIndex:0,completedClips:0,completedSeconds:0,status:'loading',message:'Loading video components…',progress:null,startedAt};
  const runtime={memoryStrategy:'sequential phases, disk-backed weights, Vulkan0 GPU budget 12.5 GiB',runtime:'stable-diffusion.cpp 2f016e8',modelSource:'https://huggingface.co/MiniMaxAI/MiniMax-H3'};
  let child=null,cancelled=false,finishRequested=false,stopReason=null,tail='',pending='',logError=null;
  const log=fs.createWriteStream(logPath,{flags:resumeSession?'a':'w'});log.on('error',error=>{logError=error;child?.kill();});
- const clips=structuredClone(resumeSession?.clips||[]);let init=null,end=null,storyMemory=resumeSession?.storyMemory||null,consecutiveFallbacks=resumeSession?.consecutiveFallbacks||0;
+ const clips=structuredClone(resumeSession?.clips||[]);let init=null,end=null,storyMemory=resumeSession?.storyMemory||null,storyOutline=resumeSession?.storyOutline||null,consecutiveFallbacks=resumeSession?.consecutiveFallbacks||0;
  const session={...resumeSession,...common,...runtime,id,name:runName||'Video run',createdAt:resumeSession?.createdAt||new Date().toISOString(),continuous:true,continuity,continuationPrompt,overlapFrames,clipFrames:frames,endMode,sceneCount,totalClips,targetSeconds,runtimeHours,deadlineAt,mergeWhenDone,referenceSeconds,referenceLastFrame,startedAt,clips,status:'running'};
  if(resumeSession){session.previousResults=[...(resumeSession.previousResults||[]),...(resumeSession.result?[resumeSession.result]:[])];delete session.result;session.resumedAt=new Date().toISOString();session.resumeCount=(resumeSession.resumeCount||0)+1;job.clipIndex=clips.length;job.completedClips=clips.length;job.completedSeconds=joinedSeconds(clips.map(c=>c.frames));job.latestClip=publicVideo(clips.at(-1));job.storyMemory=storyMemory;job.latestPlan=resumeSession.latestPlan;}
  const canEditRun=()=>continuous&&!cancelled&&!finishRequested&&!['complete','cancelled','error','assembling'].includes(job.status);
  Object.defineProperties(job,{nextSettings:{enumerable:true,get:()=>clipControl.nextSettings},pendingUpdate:{enumerable:true,get:()=>clipControl.pending},canUpdate:{enumerable:true,get:()=>canEditRun()&&(totalClips===null||job.clipIndex<totalClips)},canResize:{enumerable:true,get:()=>canEditRun()&&endMode==='scenes'}});
- const persist=(status='running')=>{if(continuous){session.directorVersion=DIRECTOR_VERSION;session.consecutiveFallbacks=consecutiveFallbacks;session.storyMemory=storyMemory;session.latestPlan=job.latestPlan;session.controllerState=clipControl.snapshot();session.nextSettings=clipControl.nextSettings;session.settingsChanges=clipControl.changes;session.pendingUpdate=clipControl.pending;session.status=status;session.stopReason=stopReason;session.elapsedMs=now()-startedAt;session.message=job.error||job.message;saveSession(root,session);}};
+ const persist=(status='running')=>{if(continuous){session.directorVersion=DIRECTOR_VERSION;session.consecutiveFallbacks=consecutiveFallbacks;session.storyMemory=storyMemory;session.storyOutline=storyOutline;session.latestPlan=job.latestPlan;session.controllerState=clipControl.snapshot();session.nextSettings=clipControl.nextSettings;session.settingsChanges=clipControl.changes;session.pendingUpdate=clipControl.pending;session.status=status;session.stopReason=stopReason;session.elapsedMs=now()-startedAt;session.message=job.error||job.message;saveSession(root,session);}};
  persist();
  if(first){init=path.join(dir,'first.png');fs.writeFileSync(init,first);}
  if(last){end=path.join(dir,'last.png');fs.writeFileSync(end,last);}
@@ -85,27 +92,45 @@ export function createVideoRun({root,cli,ffmpeg,folder,files,referenceDiffusion,
    const prefix=continuous?`videos/${id}/`:'';
    const raw=path.join(dir,'native.webm'),rel=prefix+clipId+'.mp4',output=outputFile(root,rel),poster=outputFile(root,prefix+clipId+'.jpg'),clipStarted=now();
    job.clipIndex=index+1;job.status='loading';job.progress=null;job.step=0;job.message=continuous?`Preparing clip ${index+1}…`:'Loading video components…';pending='';tail='';
-   const phase=titleScene?'title':continuous&&clipSettings.continuationStyle==='guided'?storyPhase({index,totalClips,endMode,deadlineAt,now:now(),clips,storyArc:clipSettings.storyArc}):null;
+   // Zero input: no prompt and no starting image. H3 cannot encode an empty prompt, so the clip gets
+   // ZERO_PROMPT instead, and a Guided run's director picks the story up from whatever appears.
+   const guided=continuous&&clipSettings.continuationStyle==='guided';
+   // Story outline: Guided + Story pacing runs with a known length (5+ scenes) get a plot with checkpoints first.
+   const wantsOutline=guided&&clipSettings.storyArc&&(request.outlineMode||'off')!=='off'&&totalClips!==null&&totalClips>=5;
+   const zero=index===0&&clipSettings.blankPrompt&&mode==='text'&&!init&&!wantsOutline;
+   const phase=titleScene?'title':guided?storyPhase({index,totalClips,endMode,deadlineAt,now:now(),clips,storyArc:clipSettings.storyArc}):null;
    if(titleScene)job.message='Making the title card…';
    const context={phase,clipIndex:index+1,totalClips,scenesRemaining:totalClips===null?null:Math.max(0,totalClips-index-1),totalVideoSeconds:totalClips===null?null:joinedSeconds(sceneFrames({baseFrames:request.frames,totalClips,endMode,settings:clipSettings,size,clips})),endMode,elapsedVideoSeconds:job.completedSeconds,elapsedWallSeconds:(now()-startedAt)/1000,remainingWallSeconds:deadlineAt?Math.max(0,(deadlineAt-now())/1000):null,clipSeconds:targetSeconds?Math.min(frames/24,Math.max(1/24,targetSeconds-job.completedSeconds+(index?overlapFrames/24:0))):frames/24};
    job.storyPhase=phase;let directorPlan=null;
-   if(continuous&&clipSettings.continuationStyle==='guided'&&(index>0||clipSettings.storyArc)){
+   if(guided&&(index>0||clipSettings.storyArc&&!zero)){
     job.status='planning';job.message='Reviewing the story…';
-    if(index===0){job.message='Planning the opening scene…';directorPlan=await planOpening({root,image:init,idea:clipSettings.prompt,brief:clipSettings.directorBrief,storyIntensity:clipSettings.storyIntensity,plantedThought:clipSettings.plantedThought,dir,run,runId:id,context,shouldStop:()=>cancelled||reachedDeadline()||finishRequested,onStage:message=>job.message=message});}
-    else directorPlan=await planContinuation({root,clips,memory:storyMemory,brief:clipSettings.directorBrief,storyIntensity:clipSettings.storyIntensity,plantedThought:clipSettings.plantedThought,storyEvents:clipSettings.storyEvents,dir,ffmpeg,run,runId:id,context,onStage:message=>job.message=message,onMemory:memory=>{storyMemory=memory;job.storyMemory=memory;persist();},shouldStop:()=>cancelled||reachedDeadline()||finishRequested});
+    if(index===0&&wantsOutline&&!storyOutline){
+     const idea=clipSettings.blankPrompt?'':String(clipSettings.prompt||'').trim(),theme=request.outlineMode==='random'||!idea?randomTheme():null;
+     try{storyOutline=await planOutline({root,run,runId:id,idea,theme,brief:clipSettings.directorBrief,totalClips,clipSeconds:frames/24,shouldStop:()=>cancelled||reachedDeadline()||finishRequested,onStage:message=>job.message=message});job.storyOutline=storyOutline;persist();}
+     catch(error){if(cancelled)throw Error('Cancelled');job.outlineError='The story outline could not be written, so this run continues without one: '+error.message;}
+    }
+    if(index===0){job.message='Planning the opening scene…';directorPlan=await planOpening({root,image:init,idea:clipSettings.prompt,brief:clipSettings.directorBrief,storyIntensity:clipSettings.storyIntensity,plantedThought:clipSettings.plantedThought,outline:storyOutline,dir,run,runId:id,context,shouldStop:()=>cancelled||reachedDeadline()||finishRequested,onStage:message=>job.message=message});}
+    else directorPlan=await planContinuation({root,clips,memory:storyMemory,brief:clipSettings.directorBrief,storyIntensity:clipSettings.storyIntensity,plantedThought:clipSettings.plantedThought,storyEvents:clipSettings.storyEvents,outline:storyOutline,dir,ffmpeg,run,runId:id,context,onStage:message=>job.message=message,onMemory:memory=>{storyMemory=memory;job.storyMemory=memory;persist();},shouldStop:()=>cancelled||reachedDeadline()||finishRequested});
     if(cancelled)throw Error('Cancelled');if(directorPlan.stopped)break;
-    if(directorPlan.memory)storyMemory=directorPlan.memory;job.storyMemory=storyMemory;consecutiveFallbacks=directorPlan.fallback?consecutiveFallbacks+1:0;job.consecutiveFallbacks=consecutiveFallbacks;job.latestPlan={observed:directorPlan.observed,summary:directorPlan.summary,nextPrompt:directorPlan.nextPrompt,storyEvent:directorPlan.storyEvent||null,reviewedClipIndex:directorPlan.reviewedClipIndex,recordFile:directorPlan.recordFile,phase,threadId:directorPlan.threadId,evidence:directorPlan.evidence,visibleResult:directorPlan.visibleResult,fallback:directorPlan.fallback,warnings:directorPlan.warnings};
+    if(directorPlan.outline){storyOutline=directorPlan.outline;job.storyOutline=storyOutline;}
+    if(directorPlan.memory)storyMemory=directorPlan.memory;job.storyMemory=storyMemory;consecutiveFallbacks=directorPlan.fallback?consecutiveFallbacks+1:0;job.consecutiveFallbacks=consecutiveFallbacks;job.latestPlan={observed:directorPlan.observed,summary:directorPlan.summary,nextPrompt:directorPlan.nextPrompt,storyEvent:directorPlan.storyEvent||null,checkpoint:directorPlan.checkpoint||null,logline:storyOutline?.logline||null,reviewedClipIndex:directorPlan.reviewedClipIndex,recordFile:directorPlan.recordFile,phase,threadId:directorPlan.threadId,evidence:directorPlan.evidence,visibleResult:directorPlan.visibleResult,fallback:directorPlan.fallback,warnings:directorPlan.warnings};
     clipSettings.prompt=directorPlan.nextPrompt;clipSettings.blankPrompt=false;if(index===0&&clipSettings.cfgScale>1)clipSettings.negativePrompt=clipControl.initial.negativePrompt;job.currentSettings={...clipSettings};persist();
     if(reachedDeadline()||finishRequested)break;
    }
    if(!directorPlan)consecutiveFallbacks=0;
-   const clipPrompt=withMovieSound(clipSettings.prompt,{continuous,audio,movieSound:clipSettings.movieSound});fs.writeFileSync(promptFile,clipPrompt);
-   const negativeFile=path.join(dir,'negative.txt');fs.writeFileSync(negativeFile,clipSettings.negativePrompt);
+   const clipPrompt=zero&&!clipSettings.prompt?ZERO_PROMPT:withMovieSound(clipSettings.prompt,{continuous,audio,movieSound:clipSettings.movieSound});
    const useReferences=index===0&&mode==='references';
+   // Turbo: the step-distilled LoRA gives near-identical clips in 8 or 6 steps instead of 20.
+   // It was not trained for reference mode, so those clips keep the normal steps.
+   const turboSteps=clipSettings.turbo&&clipSettings.turbo!=='off'&&!useReferences?Number(clipSettings.turbo):0;
+   if(turboSteps){if(!fs.existsSync(path.join(folder,TURBO_FILE)))throw Error('Turbo needs its LoRA file. Run Install.cmd again (or "Resume video downloads.cmd") to fetch it, or turn Turbo off.');clipSettings.steps=turboSteps;job.currentSettings={...clipSettings};}
+   fs.writeFileSync(promptFile,clipPrompt+(turboSteps?' '+TURBO_TAG:''));
+   const negativeFile=path.join(dir,'negative.txt');fs.writeFileSync(negativeFile,clipSettings.negativePrompt);
    const args=['-M','vid_gen','--diffusion-model',path.join(folder,useReferences?referenceDiffusion:files.diffusion),'--llm',path.join(folder,files.encoder),'--vae',path.join(folder,files.vae),
     '--backend','Vulkan0','--params-backend','disk','--max-vram','12.5','--mmap','--flash-attn','auto','--vae-tiling','--vae-tile-size','256','--temporal-tiling','--threads','6',
     '--prompt-file',promptFile,'--negative-prompt-file',negativeFile,'--steps',String(clipSettings.steps),'--cfg-scale',String(clipSettings.cfgScale),'--flow-shift',String(clipSettings.flowShift),'--sampling-method',clipSettings.sampler,'--scheduler',clipSettings.scheduler,'--seed',String(clipSeed),'--rng','cpu','-W',String(width),'-H',String(height),'--video-frames',String(frames),'--fps','24','-o',raw];
    if(clipSettings.sampler==='euler_a')args.push('--eta',String(clipSettings.eta));
+   if(turboSteps)args.push('--lora-model-dir',path.join(folder,path.dirname(TURBO_FILE)));
    if(audio)args.push('--audio-vae',path.join(folder,files.audio));if(!useReferences&&init)args.push('--init-img',init);if(!useReferences&&end)args.push('--end-img',end);
    const refDir=path.join(dir,'reference-work');let referenceImageCount=0;
    try {
@@ -135,7 +160,7 @@ export function createVideoRun({root,cli,ffmpeg,folder,files,referenceDiffusion,
    const fadeAt=Math.max(0,frames/24-1.2).toFixed(2),fade=titleScene?['-vf',`fade=t=out:st=${fadeAt}:d=1.2`,...(audio?['-af',`afade=t=out:st=${fadeAt}:d=1.2`]:[])]:[];
    await run(ffmpeg,[...mediaInput(raw,audio),...fade,...encodeVideo,output]);await inspect(output,frames);
    await run(ffmpeg,['-nostdin','-y','-i',output,'-frames:v','1','-vf','scale=480:-2',poster]);
-   const meta={...common,...runtime,...clipSettings,frames,seconds:frames/24,baseFrames:request.frames,generationSettings:{...clipSettings},director:directorPlan?{version:directorPlan.version,phase,storyEvent:directorPlan.storyEvent||null,threadId:directorPlan.threadId,evidence:directorPlan.evidence,visibleResult:directorPlan.visibleResult,fallback:directorPlan.fallback,warnings:directorPlan.warnings,reviewedClipIndex:directorPlan.reviewedClipIndex,model:directorPlan.model,observed:directorPlan.observed,storySummary:directorPlan.summary,reviewedClip:directorPlan.reviewedClip,recordFile:directorPlan.recordFile,elapsedMs:directorPlan.elapsedMs}:undefined,id:clipId,prompt:clipPrompt,seed:clipSeed,mode:useReferences?'references':init?'image':'text',checkpoint:useReferences?'Ref2VA':'FL2VA',filename:rel,poster:prefix+clipId+'.jpg',hasLastFrame:!!last,referenceImageCount,hasVideoReference:useReferences&&(index>0||!!refs.video),hasAudioReference:useReferences&&!!refs.audio,referenceSeconds:useReferences&&index>0?Math.min(referenceSeconds,clips.reduce((n,c)=>n+c.frames/24,0)):undefined,referenceLastFrame:useReferences&&index>0&&referenceLastFrame,createdAt:new Date().toISOString(),elapsedMs:now()-clipStarted,sequenceId:continuous?id:undefined,clipIndex:continuous?index+1:undefined,previousClip:clips.at(-1)?.filename};
+   const meta={...common,...runtime,...clipSettings,frames,seconds:frames/24,baseFrames:request.frames,generationSettings:{...clipSettings},director:directorPlan?{version:directorPlan.version,phase,storyEvent:directorPlan.storyEvent||null,checkpoint:directorPlan.checkpoint||null,threadId:directorPlan.threadId,evidence:directorPlan.evidence,visibleResult:directorPlan.visibleResult,fallback:directorPlan.fallback,warnings:directorPlan.warnings,reviewedClipIndex:directorPlan.reviewedClipIndex,model:directorPlan.model,observed:directorPlan.observed,storySummary:directorPlan.summary,reviewedClip:directorPlan.reviewedClip,recordFile:directorPlan.recordFile,elapsedMs:directorPlan.elapsedMs}:undefined,id:clipId,prompt:clipPrompt,seed:clipSeed,mode:useReferences?'references':init?'image':'text',checkpoint:useReferences?'Ref2VA':'FL2VA',filename:rel,poster:prefix+clipId+'.jpg',hasLastFrame:!!last,referenceImageCount,hasVideoReference:useReferences&&(index>0||!!refs.video),hasAudioReference:useReferences&&!!refs.audio,referenceSeconds:useReferences&&index>0?Math.min(referenceSeconds,clips.reduce((n,c)=>n+c.frames/24,0)):undefined,referenceLastFrame:useReferences&&index>0&&referenceLastFrame,createdAt:new Date().toISOString(),elapsedMs:now()-clipStarted,sequenceId:continuous?id:undefined,clipIndex:continuous?index+1:undefined,previousClip:clips.at(-1)?.filename};
    meta.storyPhase=phase;if(titleScene&&directorPlan?.title){meta.title=directorPlan.title;session.title=directorPlan.title;}const result=saveVideo(root,meta);clips.push(meta);job.latestClip=result;job.completedClips=clips.length;job.completedSeconds=joinedSeconds(clips.map(c=>c.frames));persist();
    removeWork(dir,raw);
    if(!continuous){job.result=result;break;}

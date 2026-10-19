@@ -1,13 +1,13 @@
 import {randomInt} from 'node:crypto';
 
-export const VIDEO_DEFAULTS={steps:20,cfgScale:1,flowShift:12,sampler:'euler',scheduler:'simple',eta:1,negativePrompt:'',seedMode:'fixed',continuationStyle:'blank',directorBrief:'',storyArc:true,storyIntensity:'standard',plantedThought:'',movieSound:'natural',storyEvents:'some'};
+export const VIDEO_DEFAULTS={steps:20,cfgScale:1,flowShift:12,sampler:'euler',scheduler:'simple',eta:1,negativePrompt:'',seedMode:'fixed',continuationStyle:'blank',directorBrief:'',storyArc:true,storyIntensity:'standard',plantedThought:'',movieSound:'natural',storyEvents:'some',turbo:'off'};
 export const VIDEO_SAMPLERS=['euler','euler_a','heun','dpm++2m'];
 export const VIDEO_SCHEDULERS=['simple','sgm_uniform','karras','exponential'];
 const seedLimit=2147483648;
 const fail=message=>{throw Object.assign(Error(message),{status:400});};
 export function validateClipSettings(data,{partial=false}={}){
  if(!data||typeof data!=='object'||Array.isArray(data))fail('Invalid clip settings.');
- const allowed=['prompt','blankPrompt','steps','cfgScale','flowShift','sampler','scheduler','eta','negativePrompt','seedMode','seed','continuationStyle','directorBrief','storyArc','storyIntensity','plantedThought','movieSound','storyEvents'];
+ const allowed=['prompt','blankPrompt','steps','cfgScale','flowShift','sampler','scheduler','eta','negativePrompt','seedMode','seed','continuationStyle','directorBrief','storyArc','storyIntensity','plantedThought','movieSound','storyEvents','turbo'];
  if(partial)for(const key of Object.keys(data))if(!allowed.includes(key))fail('This setting cannot change during a run: '+key+'.');
  const result={};
  for(const key of allowed){
@@ -19,8 +19,8 @@ export function validateClipSettings(data,{partial=false}={}){
    if(typeof value!=='string'||value.length>7000)fail('Keep each prompt under 7,000 characters.');result[key]=value.trim();
   }else if(key==='blankPrompt'||key==='storyArc'){
    if(typeof value!=='boolean')fail(key+' must be on or off.');result[key]=value;
-  }else if(['seedMode','sampler','scheduler','continuationStyle','storyIntensity','movieSound','storyEvents'].includes(key)){
-   const choices=key==='storyEvents'?['off','some','often','chaos']:key==='movieSound'?['natural','model']:key==='storyIntensity'?['gentle','standard','bold']:key==='continuationStyle'?['blank','guided','custom']:key==='seedMode'?['fixed','random','increment']:key==='sampler'?VIDEO_SAMPLERS:VIDEO_SCHEDULERS;
+  }else if(['seedMode','sampler','scheduler','continuationStyle','storyIntensity','movieSound','storyEvents','turbo'].includes(key)){
+   const choices=key==='turbo'?['off','8','6']:key==='storyEvents'?['off','some','often','chaos']:key==='movieSound'?['natural','model']:key==='storyIntensity'?['gentle','standard','bold']:key==='continuationStyle'?['blank','guided','custom']:key==='seedMode'?['fixed','random','increment']:key==='sampler'?VIDEO_SAMPLERS:VIDEO_SCHEDULERS;
    if(!choices.includes(value))fail('Choose an available '+key+'.');result[key]=value;
   }else{
    if(value===''||typeof value==='boolean'||!Number.isFinite(Number(value)))fail('Enter a number for '+key+'.');
