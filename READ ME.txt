@@ -8,15 +8,17 @@ If Windows does not open the VBS launcher, use "Start (console fallback).cmd".
 
 USE
 Choose a model, describe an image, then choose Generate.
-Use Edit images to add one or more reference pictures.
+Add reference pictures, or a start image to redraw, in the sections above the description.
+Every option the two image models support is on the Images page. See IMAGE OPTIONS below.
 Small i buttons provide help on hover, keyboard focus, or click.
 Your images are automatically saved in the outputs folder.
 The power button closes the local app. Closing the browser alone leaves the small local server running.
 
 WHAT IS INCLUDED
-- Qwen Image 2.1 Turbo: image generation, reference editing, and transparency.
+- Qwen Image 2.1 Turbo: image generation, reference editing, redraw and masked inpainting, and transparency.
   This pairs AtomicChat's AD-Q4 image generator with its AD-Q4 modified text encoder.
-- FLUX 3 Image Klein: image generation and reference editing, Q4_K_M.
+- FLUX 3 Image Klein: image generation, reference editing, redraw and masked inpainting, Q4_K_M.
+- 4xNomos2 photo upscaler (17 MB) for sharp 4x copies of finished images.
 - Optional local prompt expansion using the FLUX family's Qwen3-VL 4B text encoder.
   This is a general-purpose prompt helper, not Black Forest Labs' separate PUP model.
 - MiniMax H3 video, frame-based continuation, separate run folders and merging.
@@ -29,18 +31,49 @@ Only one operation runs at a time. The model process exits after each image,
 releasing its GPU memory. Everything runs locally after the downloads finish.
 No paid API, subscription, account, or cloud image generation is used by this app.
 
+IMAGE OPTIONS
+Both image models support everything below unless it says otherwise.
+- Reference images: up to 10. The model looks at them while it works, for editing,
+  combining people or objects, or copying a style. Refer to them as image 1, image 2...
+  Add them with the button, by dragging files onto the section, or by pasting (Ctrl+V).
+- Start image: redraws an existing picture (image-to-image). Change strength sets how
+  much can change. Redraw, under a finished image, uses that image as the start image.
+- Paint mask: paint over the area to change. Only that area is redrawn (inpainting).
+  Strength 1 gives the cleanest replacement. References can be used at the same time.
+  Undo (or Ctrl+Z) steps back through the last 10 brush strokes.
+- Image size: any shape, including Match input image and Custom, from 256 to 2048 px
+  in steps of 32. Images per run: up to 8, using seed, seed+1, seed+2...
+- Advanced settings: Steps, Guidance (CFG), Avoid (negative prompt, used only when
+  Guidance is above 1), Sampler (21 kinds), Schedule, Extra noise (eta, for samplers
+  that add noise), Seed, Seamless tiling, Speed-up cache and Live preview.
+  FLUX only: Flow shift. Qwen only: the Turbo schedule is fixed at 8 steps; choose
+  another schedule to set your own step count. Defaults are the tested settings.
+- Upscale: a second pass that enlarges and redraws for real detail (hires fix), and
+  "Then sharpen 4x" with the photo upscaler. Upscale 4x, under a finished image,
+  makes a 4x copy in about a second.
+- LoRAs: put LoRA files made for a model in models\loras\qwen-turbo or
+  models\loras\flux-klein. They appear in the LoRAs section with an on switch and a
+  strength. A warning appears if a LoRA does not match the model.
+- Blank prompt, or an empty description, sends the invisible blank character U+2800,
+  so every image comes out completely different.
+- Transparent background: Qwen only.
+Not available with these two models: ControlNet, IP-Adapter, PhotoMaker, PuLID and
+ADetailer need other model files, and distilled guidance, image guidance and skip-layer
+guidance have no effect on these two models.
+
 EDITING
 Use up to 10 PNG, JPEG, or WebP references, at most 10 MB each.
 The app resizes working copies to at most 1024 pixels on their long edge;
 your originals are not changed.
 Reference order is preserved. Describe the desired finished image and changes.
 These models can alter composition and areas beyond the requested change.
-No separate mask inpainting model is installed. The Video tab provides MiniMax H3; see VIDEO - START HERE.txt for its controls and setup status.
+Masked redraws use the normal models; no separate inpainting model is needed. The Video tab provides MiniMax H3; see VIDEO - START HERE.txt for its controls and setup status.
 
 MODELS AND STORAGE
 The two image model families occupy about 17.8 GB. H3 adds about 35.5 GB, its optional reference model about 11.4 GB, and the Guided scene reader about 0.84 GB.
 Generated PNGs and their settings records are in outputs.
-Working reference copies and prompt files are in inputs.
+Working reference copies, start images, masks and prompt files are in inputs.
+LoRAs are in models\loras and the 4x upscaler is in models\upscalers.
 Diagnostic logs are in logs.
 
 To remove a model family, stop the app and delete its folder in models:
@@ -55,7 +88,7 @@ Stop the app first, then keep this entire folder together. The launchers use its
 location, so the folder can be moved without editing paths.
 
 IF SOMETHING FAILS
-Try a 512 px image and fewer references. Close other GPU-heavy apps if needed.
+Try a 512 px image, fewer references, Images per run 1 and Upscale off. Close other GPU-heavy apps if needed.
 Check the on-screen error and the logs folder. "Start (console fallback).cmd"
 also shows startup errors. Detailed setup and testing records are in logs.
 If a download was interrupted, run "Install.cmd" again and leave its
@@ -63,4 +96,7 @@ window open. This also downloads any model files you deliberately removed.
 
 SOURCE RECORDS
 model-downloads.json records exact model URLs, byte sizes, and SHA-256 hashes.
+4xNomos2_hq_mosr.pth came from
+  https://github.com/Phhofm/models/releases/download/4xNomos2_hq_mosr/4xNomos2_hq_mosr.pth
+  17,213,494 bytes, SHA-256 c60dbfc7e6f7d27e03517d1bec3f3cbd16e8cd4288eefd1358952f73f8497ddc
 Runtime and model licensing information is in licenses and runtime.

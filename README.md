@@ -89,6 +89,8 @@ its SHA-256 hash. The pinned list is in [installer/runtimes.json](installer/runt
 | MiniMax H3 video model, Qwen3-VL 32B encoder, video and audio decoders | 35.5 GB | Hugging Face: leejet, Comfy-Org | MiniMax H3 Community Licence |
 | MiniMax H3 reference model (Ref2VA) | 11.4 GB | Hugging Face: leejet | MiniMax H3 Community Licence |
 | Qwen3.5 9B story writer | 6.6 GB | Ollama library (qwen3.5:9b) | Apache-2.0 |
+| MiniMax H3 Turbo LoRA (optional fast mode, 8 or 6 steps) | 780 MB | Hugging Face: larryvrh | Apache-2.0 |
+| 4xNomos2 photo upscaler | 17 MB | github.com/Phhofm/models | CC-BY-4.0 |
 
 **Total:** about 72 GB of models and 1.8 GB of programs.
 

@@ -1,5 +1,11 @@
 [
   {
+    "file": "upscalers/4xNomos2_hq_mosr.pth",
+    "url": "https://github.com/Phhofm/models/releases/download/4xNomos2_hq_mosr/4xNomos2_hq_mosr.pth",
+    "bytes": 17213494,
+    "sha256": "c60dbfc7e6f7d27e03517d1bec3f3cbd16e8cd4288eefd1358952f73f8497ddc"
+  },
+  {
     "file": "qwen-turbo/Qwen-Image-2.1-Turbo-AD-Q4_K.gguf",
     "url": "https://huggingface.co/AtomicChat/Qwen-Image-2.1-Turbo-GGUF/resolve/f5996597b053664d0885cfaa0dcc88afb47f92f6/Qwen-Image-2.1-Turbo-AD-Q4_K.gguf",
     "bytes": 4201694944,
