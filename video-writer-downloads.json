@@ -1,0 +1,11 @@
+[
+  {
+    "file": "story-writer/Qwen3.5-9B.gguf",
+    "bytes": 6594462816,
+    "sha256": "dec52a44569a2a25341c4e4d3fee25846eed4f6f0b936278e3a3c900bb99d37c",
+    "url": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:dec52a44569a2a25341c4e4d3fee25846eed4f6f0b936278e3a3c900bb99d37c",
+    "source": "Official Ollama qwen3.5:9b model layer; copied from the existing local installation and SHA-256 verified.",
+    "modelCard": "https://huggingface.co/Qwen/Qwen3.5-9B",
+    "templateRevision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+  }
+]

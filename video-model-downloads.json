@@ -1,0 +1,26 @@
+[
+  {
+    "file": "minimax-h3/minimax_h3_fl2va_pruned-Q4_K_M.gguf",
+    "url": "https://huggingface.co/leejet/MiniMax-H3-GGUF/resolve/d9c4c6312b4728a68a15a35626d84775a6523783/minimax_h3_fl2va_pruned-Q4_K_M.gguf",
+    "bytes": 11420663904,
+    "sha256": "dd948e08ad0ba3c71bd42f368e283dd82e790f5122a63b276e22a3e0283d0c10"
+  },
+  {
+    "file": "minimax-h3/qwen3vl_32b_minimax_h3-Q4_K_M.gguf",
+    "url": "https://huggingface.co/leejet/MiniMax-H3-GGUF/resolve/d9c4c6312b4728a68a15a35626d84775a6523783/qwen3vl_32b_minimax_h3-Q4_K_M.gguf",
+    "bytes": 18218065024,
+    "sha256": "11e6efe70a57ce7f4838c47bdbd1a1c4b8ce10e2b7747f1b065990b70f4b05fc"
+  },
+  {
+    "file": "minimax-h3/minimax_h3_video_vae_fp16.safetensors",
+    "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/e5eb578a89295337b8ff433a035929ce0279e0b6/vae/minimax_h3_video_vae_fp16.safetensors",
+    "bytes": 5207808496,
+    "sha256": "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
+  },
+  {
+    "file": "minimax-h3/minimax_h3_audio_vae_fp32.safetensors",
+    "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/e5eb578a89295337b8ff433a035929ce0279e0b6/vae/minimax_h3_audio_vae_fp32.safetensors",
+    "bytes": 605254808,
+    "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+  }
+]

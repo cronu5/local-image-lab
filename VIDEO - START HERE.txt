@@ -1,0 +1,81 @@
+Open Local Image Lab as usual, then choose Video. The small i buttons explain the controls.
+
+INSTALLATION
+Main H3 components: 35.5 GB. Ref2VA adds 11.4 GB and shares the encoder and decoders. Its download starts after the main components finish. Keep the PC awake and connected. Resume download in Video (or running Install.cmd again) resumes missing files. Finished files are checked against SHA-256 hashes.
+
+The open app queues a short text-to-video test, then a video-and-sound reference test when Ref2VA is available. Failures are reported and not retried automatically. Install.cmd turns these tests on; they run once, the first time the app is idle. A successful media check is not a visual-quality judgment. Guided also passed a real two-clip check: two 14.4-second image-conditioned clips, local review and memory, an ending prompt, and one merged video with audio. That check used one generation step to verify the pipeline; the normal default is 20. Overnight reliability and long-story coherence have not been tested.
+
+START WITH
+Text: describe the scene, camera, motion, dialogue and sound.
+Image: animate a first frame; an optional last frame guides a single clip's ending.
+References: combine up to 4 images, a video and standalone audio. Ref2VA cannot use reference media and dedicated first/last-frame inputs in the same request.
+
+Reference video uses its last 8 seconds, at 24 fps and scaled to fit the selected output size. Standalone audio uses its first 8 seconds. A video's soundtrack can be included or excluded. Upload limits: 50 MB video, 10 MB audio, 10 MB per image. The image picker resizes images to at most 1024 pixels.
+
+CONTINUOUS VIDEO
+To start from your own image, choose Image and upload the first frame, then switch on Auto-continue. Choose clip length and a stopping rule. Number of scenes is the default (1–2,000 clips, default 12); Guided then knows the exact final scene. The UI estimates running time from recent clips at matching size, duration and step count; this is approximate. PC running time (0.25–168 hours), video length (1–600 seconds), and Until stopped remain available. PC running time measures how long the PC works, not the length of the finished movie. At the deadline the current clip finishes and saves, so actual stopping can be later than the limit. Choose Fixed, Random or Increment in Advanced for the seed pattern. Fixed is the default. A fixed seed does not guarantee consistent content because each starting frame is different. The dice button shows a real random starting number; -1 chooses one when the run starts.
+
+NEXT CLIPS
+Image only (default): no positive or negative prompt is sent after the first clip; the starting frame provides visual conditioning.
+Guided: a local Qwen3-VL 4B model reviews completed clips and maintains compact story memory. Qwen3.5 9B then edits the proposed next beat into a concrete scene prompt. The helpers run consecutively between video generations and release their models before H3 starts. They reuse the installed 4B model, add an approximately 0.84 GB vision projector, and use a 6.6 GB story writer downloaded from the official Ollama library. Everything needed is kept in this app's folder; no paid service is involved.
+Custom: repeat your chosen continuation prompt after the first clip, independently of whether the first clip used a blank prompt.
+
+Guided samples 12 chronological frames from a normal clip, or 16 from clips longer than 8 seconds. Older confirmed events are compressed into story memory, while the four most recent review records stay detailed. The planner receives the full compact memory first, then recent scene descriptions, then the highest-priority latest scene and final image. If Guided is enabled partway through a run, it catches up on all earlier unreviewed clips in batches of up to three, using 12 sampled frames per batch. Catch-up adds time. The reader does not listen to audio and may miss or misinterpret details between sampled frames.
+
+Story pacing is enabled by default in Guided. It plans only the next scene, using observed history and the remaining clip count. There is no advance plot outline. The planner weighs plausible follow-through, consequences and discoveries, then chooses one grounded action with a concrete visible result. Starting-frame continuity applies to the beginning of the clip; it does not ask the scene to remain static. It discourages repeated tentative motions and unexplained reversals, while allowing purposeful quiet or funny beats. Known scene-count runs progress through opening, exploration, development and convergence. The final three scenes have separate jobs: prepare an earned payoff, resolve the main visible action, and deliver its final consequence or payoff. Short runs combine these roles as needed. The two lead-in scenes are at least 10.1 seconds, with a 14.4-second finale. The latest final frame and observation outrank older memory. Your story direction can redirect future action and override pacing, but cannot rewrite past observations. Calm scenes do not need forced conflict or dramatic twists.
+
+Guided clips are at least 5.2 seconds. With Number of scenes + Story pacing, the opening and ending are 14.4 seconds; the first development and convergence scenes, plus both lead-in scenes before the finale, are at least 10.1 seconds; other clips use your selected length (default 5.2 seconds). One-scene runs get a single 14.4-second self-contained moment. These are frame-grid-compatible durations within the published 15-second limit. Longer clips use substantially more time and memory. A larger resolution may exceed this GPU capacity. The planner receives each actual duration before writing the prompt.
+
+TITLE CARD: Guided runs with Number of scenes + Story pacing end with one extra clip. After the finale, the story writer names the film from everything it remembers and writes a closing title shot that starts on the final frame, turns into the title in the film's own style (rising through water, flying in through stars...) and fades to black. The title clip is included in the merge. A finished run can get one later with the resume API: POST /api/video/resume {"id":"<run id>","titleOnly":true}. Video models can misspell text, so check the title.
+
+PC running time and Until stopped have no scheduled final clip. They never infer an ending from a time estimate. Video length uses a fixed target duration. Stopping any mode early can skip its closing scene. Turning Story pacing off retains normal Guided continuation with a 5.2-second minimum.
+
+The vision reviewer describes footage independently, without being shown prior prompts, subject IDs or story expectations. A separate text pass reconciles subjects and compresses factual memory. Active memory is bounded (up to 6 subjects, 4 evidence-backed possible threads and 4 recent review records); the full archive remains on disk. No meaningful thread is a valid outcome. Unclear identities and events should stay uncertain. The planner returns the next action, its supporting evidence and an optional thread ID. New late threads are flagged for inspection rather than silently rejected.
+
+Story intensity is optional: Gentle uses unhurried, modest progress; Standard keeps the balanced purposeful prompts; Bold favours decisive actions and discoveries. All preserve the starting state and favour plausible movement. These are planning preferences, not a guarantee of the result or changes to video noise. Standard is the default.
+
+Planted thought accepts an optional word or short phrase. It appears on its own line at the end of the planner input, without a label or explanation, and never enters the blind scene review or factual-memory update. The planner may use or ignore it; it is not a claim about the past. An empty field adds no text. It is offered on each Guided planning call until cleared, or choose Next clip only for a temporary nudge. Image only and Custom ignore these story-planning options.
+
+Guided uses Qwen3-VL 4B to review frames. The Qwen3.5 9B writer keeps factual memory (stable subject IDs, story threads and key events with scene numbers). The 4B model drafts the next beat with the final image, then the 9B writer revises the prompt for a clear action and result, naming subjects consistently and keeping the main subject in view. The writer receives the story memory, latest observation, draft, pacing and your optional choices. Each process exits before the next one loads, so the helpers and video model do not occupy GPU memory together. The writer adds about 6.6 GB of model files; its pinned source and checksum are in video-writer-downloads.json. The extra editing pass is still probabilistic and cannot guarantee every clip progresses well.
+
+The video seed controls video noise only. Helper sampling uses independent per-run, scene and stage seeds. Changing the video seed does not reset memory or feed that seed into the language model.
+
+Each helper stage retries once on unusable output or failure; overlong fields are trimmed rather than rejected. If the memory update still fails, planning continues from the previous memory and the latest observation, with a warning in Story notes. If planning still fails after a usable current-scene review, a conservative continuation can be used and is visibly marked in Story notes. Two consecutive fallback clips stop the run. If the visual review fails, the run stops without pretending the scene was understood. Completed media and available observations remain saved. CHANGE is recorded across all sampled frames. Three consecutive individual reviews reporting none or small change add an advisory to the next planner: follow through, show a consequence, or reveal something through purposeful movement. This is not proof of stagnation, and explicit requests for stillness take priority. Grouped catch-up reviews do not count as separate slow scenes. Archived callbacks are not enabled.
+
+Story notes show factual memory, the latest observation, the intended visible change, the next prompt and any fallback or caution. The planned change is a future intention, not an observed fact. Full scene JSON records, sampled images, exact helper prompts, schemas, outputs and runtime/model identities are kept in the run folder under director/. The last completed clip is reviewed when planning its successor; the displayed memory identifies which clip it covers. This is an experimental continuity helper, not a guarantee of movie-length coherence.
+
+Each completed clip's final decoded frame is passed as the next clip's starting-frame input. Previous video and audio are not carried forward. Generate sound remains optional and makes fresh audio for each clip. Reference media, if chosen under Start with, only guides the first clip. The join trims one boundary frame; this does not guarantee an identical first frame or seamless motion.
+
+Each continuous run has its own outputs/videos/<run-id> folder, containing independent MP4 clips, posters, metadata and a session.json record. Give it a name if you like. Your runs lists saved runs and lets you preview individual clips, open the folder, or Merge clips into one MP4. Merging preserves every original clip and works after reopening the app. Leave Merge automatically when finished off to merge later; switching it on adds rendering time after generation ends.
+
+Finish after this clip completes and saves the current clip, then stops. Stop now cancels current work and preserves previously completed clips. Failures also preserve completed clips. The app stops starting new clips if free disk space falls below 5 GB and removes temporary reference frames after each generation. It asks Windows to prevent automatic sleep while a continuous run or merge is active; the screen can turn off. Keep the PC powered on and the local app running. Closing the browser tab does not stop generation. Stopping the app or restarting the PC interrupts the sequence; it does not resume automatically. Interrupted runs can still be merged from their saved clips.
+
+Merging produces a playable MP4; it cannot repair changes in the generated scene. HDR is about brightness and colour, not motion smoothing. No untested interpolation or upscaling model has been added.
+
+BLANK PROMPT
+Blank prompt sends an empty user description with no filler or prompt expansion. Built-in model conditioning still applies; references still guide the result. Image transparency is turned off because it adds text instructions. For videos this controls the initial clip; Image only, Guided or Custom independently controls subsequent clips. With Guided story pacing enabled, the opening idea is optional and the local planner writes the initial prompt. Both installed image models have been tested with zero-byte prompts.
+
+LIVE CONTROLS
+During a scene-count run, Total scenes above the preview changes the run length immediately. You can extend even while the previously final clip is still rendering. Completed clips and the current clip are kept; subsequent planning uses the new total and final-three-scene schedule. Reducing the count to the current clip finishes there, so a short-notice change can skip ending preparation. A count change stays with this run and does not change the default for new runs.
+
+While a run is active, open Adjust next clips. Change continuation mode, story direction, story intensity, planted thought, seed pattern, seed or Advanced model settings, then Apply to next clip. Choose Next clip only for a temporary experiment, or Rest of this run. The current clip keeps its captured settings, including while it is being planned. Discard queued change removes an unapplied edit. Every clip saves its actual seed, prompt and model settings. New runs do not inherit these temporary live changes.
+
+Advanced includes steps, guidance, negative prompt, flow shift, sampler, schedule and Euler ancestral extra noise. Defaults are 20 steps, guidance 1, flow shift 12, Euler and Simple. Negative text is active only with guidance above 1 and is disabled for Image only. Alternate samplers and settings are experimental. Size and audio output stay fixed during a run. Guided scene lengths follow the pacing schedule; actual lengths are saved per clip, and different lengths can be merged.
+
+SHORTCUTS
+Animate on a saved image sends it to Video as a first frame.
+Use as reference on a saved video prepares a Ref2VA input.
+Reuse settings restores prompt, size, seed and continuation settings. Uploaded references may need to be added again.
+
+Start with Quick size. Standard clip length is 5.2 seconds; the separate 2.3-second option is for single-clip or unguided testing. Larger frames, longer clips and reference conditioning need more memory and time. The app stages the H3-specific Qwen3-VL-32B encoder, generation and decoding with disk-backed weights and a bounded GPU cache. All inference is local. Media and settings are in outputs; diagnostics are in logs.
+
+SOURCES
+https://huggingface.co/MiniMaxAI/MiniMax-H3
+https://huggingface.co/leejet/MiniMax-H3-GGUF
+https://huggingface.co/Comfy-Org/MiniMax-H3
+https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/minimax_h3.md
+Pinned revisions and hashes: video-model-downloads.json, video-reference-downloads.json, video-director-downloads.json and video-writer-downloads.json.
+Scene reader: https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF
+FFmpeg license and source reference: runtime/ffmpeg.
+
+Story writer: https://huggingface.co/Qwen/Qwen3.5-9B

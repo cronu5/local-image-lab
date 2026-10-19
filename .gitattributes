@@ -1,0 +1,8 @@
+# Windows scripts keep their CRLF line endings exactly as committed.
+*.cmd -text
+*.bat -text
+*.vbs -text
+*.ps1 -text
+*.ico binary
+# Ollama package files are named by their SHA-256 hash and must stay byte-for-byte identical.
+models/story-writer/** binary

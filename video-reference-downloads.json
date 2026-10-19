@@ -1,0 +1,8 @@
+[
+  {
+    "file": "minimax-h3/minimax_h3_ref2va_pruned-Q4_K_M.gguf",
+    "bytes": 11420663904,
+    "sha256": "9ca1aef9f4609a56c2c751484013e1b20fe352f892122e5ab0a428fb95a7956e",
+    "url": "https://huggingface.co/leejet/MiniMax-H3-GGUF/resolve/d9c4c6312b4728a68a15a35626d84775a6523783/minimax_h3_ref2va_pruned-Q4_K_M.gguf"
+  }
+]

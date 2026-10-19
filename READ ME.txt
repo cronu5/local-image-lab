@@ -1,0 +1,66 @@
+LOCAL IMAGE LAB
+
+OPEN
+First run Install.cmd once (see README.md). Then double-click the "Local Image Lab"
+icon on the desktop, or "Start Local Image Lab.vbs" in this folder.
+The app opens in your browser. No terminal commands are needed.
+If Windows does not open the VBS launcher, use "Start (console fallback).cmd".
+
+USE
+Choose a model, describe an image, then choose Generate.
+Use Edit images to add one or more reference pictures.
+Small i buttons provide help on hover, keyboard focus, or click.
+Your images are automatically saved in the outputs folder.
+The power button closes the local app. Closing the browser alone leaves the small local server running.
+
+WHAT IS INCLUDED
+- Qwen Image 2.1 Turbo: image generation, reference editing, and transparency.
+  This pairs AtomicChat's AD-Q4 image generator with its AD-Q4 modified text encoder.
+- FLUX 3 Image Klein: image generation and reference editing, Q4_K_M.
+- Optional local prompt expansion using the FLUX family's Qwen3-VL 4B text encoder.
+  This is a general-purpose prompt helper, not Black Forest Labs' separate PUP model.
+- MiniMax H3 video, frame-based continuation, separate run folders and merging.
+- Guided continuation with local visual review, observed story memory and scene-count pacing.
+- Live controls for the next clip or the rest of a continuous run.
+- The correct separate encoders and image decoders for both families.
+- Local Windows Vulkan runtimes (downloaded by Install.cmd), the app, model records, and licence notices.
+
+Only one operation runs at a time. The model process exits after each image,
+releasing its GPU memory. Everything runs locally after the downloads finish.
+No paid API, subscription, account, or cloud image generation is used by this app.
+
+EDITING
+Use up to 10 PNG, JPEG, or WebP references, at most 10 MB each.
+The app resizes working copies to at most 1024 pixels on their long edge;
+your originals are not changed.
+Reference order is preserved. Describe the desired finished image and changes.
+These models can alter composition and areas beyond the requested change.
+No separate mask inpainting model is installed. The Video tab provides MiniMax H3; see VIDEO - START HERE.txt for its controls and setup status.
+
+MODELS AND STORAGE
+The two image model families occupy about 17.8 GB. H3 adds about 35.5 GB, its optional reference model about 11.4 GB, and the Guided scene reader about 0.84 GB.
+Generated PNGs and their settings records are in outputs.
+Working reference copies and prompt files are in inputs.
+Diagnostic logs are in logs.
+
+To remove a model family, stop the app and delete its folder in models:
+  qwen-turbo   = Qwen Image 2.1 Turbo and its supporting files
+  flux-klein   = FLUX 3 Image Klein and its supporting files
+Your generated images remain in outputs. The removed model becomes unavailable.
+Removing flux-klein also removes the shared optional prompt expansion and Guided scene reader model.
+The app does not automatically download deleted models again.
+
+MOVING THE APP
+Stop the app first, then keep this entire folder together. The launchers use its current
+location, so the folder can be moved without editing paths.
+
+IF SOMETHING FAILS
+Try a 512 px image and fewer references. Close other GPU-heavy apps if needed.
+Check the on-screen error and the logs folder. "Start (console fallback).cmd"
+also shows startup errors. Detailed setup and testing records are in logs.
+If a download was interrupted, run "Install.cmd" again and leave its
+window open. This also downloads any model files you deliberately removed.
+
+SOURCE RECORDS
+model-downloads.json records exact model URLs, byte sizes, and SHA-256 hashes.
+Runtime and model licensing information is in licenses and runtime.
