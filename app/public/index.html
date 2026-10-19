@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#171816">
+  <title>Local Image Lab</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/video.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="wordmark"><span class="brand-mark" aria-hidden="true">◫</span><span>Local Image Lab</span><span class="version" id="version">LOCAL</span></div>
+    <div class="header-actions">
+      <nav class="media-tabs" aria-label="Workspace"><a href="/" aria-current="page">Images</a><a href="/video">Video</a></nav>
+      <span class="connection" id="connection"><span class="status-dot"></span><span id="connection-label">Connecting</span></span>
+      <button class="quiet-button" id="open-outputs" title="Open the folder containing your generated images">Open outputs <span aria-hidden="true">↗</span></button>
+      <button class="icon-button" id="shutdown" aria-label="Stop the local server" title="Stop the local server"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M6.3 5.8a8 8 0 1 0 11.4 0"/></svg></button>
+    </div>
+  </header>
+
+  <div class="connection-banner" id="connection-banner" role="status" hidden></div>
+
+  <main class="workspace">
+    <aside class="controls-panel" aria-label="Image generation settings">
+      <form id="generate-form">
+        <div class="form-fields">
+        <section class="download-panel" id="download-panel" aria-label="Model downloads" hidden>
+          <div class="download-heading"><span>Downloading models</span><span id="download-percent"></span></div>
+          <div class="download-track" id="download-track" role="progressbar" aria-label="Model download progress" aria-valuemin="0" aria-valuemax="100"><div id="download-bar"></div></div>
+          <div class="download-details"><span id="download-amount"></span><span id="download-time"></span></div>
+        </section>
+        <section class="control-section model-section">
+          <div class="section-heading"><h1>Model</h1><span class="section-count" id="model-count">—</span></div>
+          <div class="model-list" id="model-list"><p class="muted loading-copy">Reading local models…</p></div>
+          <details class="model-note" id="model-note" hidden><summary>Setup details</summary><div id="model-missing"></div></details>
+        </section>
+
+        <section class="control-section mode-section" id="mode-section" hidden>
+          <div class="section-heading"><span>Mode</span><span class="info-anchor" data-info-text="Create starts with a text description. Edit uses your uploaded images as references."></span></div>
+          <div class="mode-options" role="group" aria-label="Generation mode"><button type="button" class="mode-button selected" data-mode="create" aria-pressed="true">Create image</button><button type="button" class="mode-button" data-mode="edit" aria-pressed="false">Edit images</button></div>
+        </section>
+
+        <section class="control-section reference-section" id="reference-section" hidden>
+          <div class="section-heading"><label for="reference-files">Reference images</label><span class="reference-count" id="reference-count"></span><span class="info-anchor" id="reference-info" data-info-text="Add PNG, JPG or WebP images, up to 10 MB each. References are numbered in upload order."></span></div>
+          <div class="reference-list" id="reference-list"></div>
+          <label class="upload-button" id="upload-label" for="reference-files"><span aria-hidden="true">＋</span><span id="upload-label-text">Add images</span></label>
+          <input type="file" id="reference-files" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden">
+        </section>
+
+        <section class="control-section prompt-section">
+          <div class="section-heading"><label for="prompt" id="prompt-label">Describe your image</label><span class="info-anchor" id="prompt-info" data-info-text="Describe the subject, setting, lighting and style. A specific scene description gives the model more to work with."></span></div>
+          <textarea id="prompt" name="prompt" rows="4" required maxlength="12000" placeholder="A red canoe on a still alpine lake at dawn, mist between pine-covered mountains, soft golden light. Natural colours, medium-format film."></textarea>
+          <div class="prompt-options"><label class="toggle-label" for="blank-prompt"><input id="blank-prompt" type="checkbox"><span class="toggle-track" aria-hidden="true"></span><span>Blank prompt</span></label><span class="info-anchor" data-info-text="Sends an empty description, with no filler or prompt expansion. The model still uses its built-in conditioning, and reference images still guide edits. Transparency is off in this mode."></span></div>
+          <div class="enhance-row" id="enhance-row" hidden><button type="button" class="text-button" id="enhance">Expand prompt</button><span class="info-anchor" data-info-text="Uses a local language model to add descriptive detail. Review and edit the expanded prompt before generating an image."></span></div>
+        </section>
+
+        <section class="control-section size-section">
+          <div class="section-heading"><span>Image size <span class="info-anchor" data-info-text="Larger images need more memory and time. Start at 512 px for edits or a quick test."></span></span><output id="dimensions">768 × 768</output></div>
+          <div class="format-options" role="group" aria-label="Image shape">
+            <button type="button" class="format-button selected" data-format="square" aria-pressed="true"><span class="format-icon square" aria-hidden="true"></span><span>Square</span></button>
+            <button type="button" class="format-button" data-format="landscape" aria-pressed="false"><span class="format-icon landscape" aria-hidden="true"></span><span>Landscape</span></button>
+            <button type="button" class="format-button" data-format="portrait" aria-pressed="false"><span class="format-icon portrait" aria-hidden="true"></span><span>Portrait</span></button>
+          </div>
+          <div class="resolution-row"><label for="resolution">Long edge</label><select id="resolution" name="resolution"><option value="512">512 px · quick test</option><option value="768" selected>768 px · standard</option><option value="1024">1024 px · larger</option></select></div>
+          <div class="transparency-row" id="transparency-row" hidden><label class="toggle-label" for="transparent"><input type="checkbox" id="transparent"><span class="toggle-track" aria-hidden="true"></span><span>Transparent background</span></label><span class="info-anchor" data-info-text="Asks Qwen to produce an image with transparency. Best for a single, clearly described subject. Saved as a PNG; results depend on the model."></span></div>
+        </section>
+
+        <details class="advanced control-section" id="advanced">
+          <summary><span>Advanced settings <span class="info-anchor" id="fixed-settings-info" data-info-text="This model uses fixed settings." hidden></span></span><span class="summary-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="advanced-body">
+            <div class="field-pair" id="numeric-settings">
+              <div id="steps-field"><div class="field-header"><label for="steps">Steps</label><span class="info-anchor" data-info-text="How many refinement passes the model makes. More steps take longer and do not always improve quality. Start with the model default."></span></div><input type="number" id="steps" name="steps" min="1" max="50" value="4" step="1" required></div>
+              <div id="cfg-field"><div class="field-header"><label for="cfg">Guidance</label><span class="info-anchor" data-info-text="How strongly the model follows the prompt (CFG). Too high can distort the image. Turbo models often work best at the supplied default."></span></div><input type="number" id="cfg" name="cfg" min="1" max="10" value="1" step="0.1" required></div>
+            </div>
+            <div class="field-header seed-header"><label for="seed">Seed</label><span class="info-anchor" data-info-text="Random fills in a new seed now. Use −1 for a fresh random seed on every generation. Reuse a seed with the same model, prompt and settings for repeatable results."></span></div>
+            <div class="seed-row"><input type="number" id="seed" name="seed" min="-1" max="2147483647" value="-1" step="1" required><button type="button" class="quiet-button" id="random-seed">Random</button></div>
+            <button type="button" class="text-button" id="reset-defaults">Restore model defaults</button>
+          </div>
+        </details>
+
+        </div>
+        <div class="generate-area">
+          <div class="form-error" id="form-error" role="alert" hidden></div>
+          <button type="submit" class="generate-button" id="generate" disabled><span id="generate-label">Generate image</span><span aria-hidden="true">↗</span></button>
+          <button type="button" class="cancel-button" id="cancel" hidden>Cancel generation</button>
+          <p class="generate-hint" id="generate-hint">One image at a time · Ctrl + Enter to generate</p>
+        </div>
+      </form>
+      <footer class="controls-footer"><span class="local-icon" aria-hidden="true">●</span> Local generation · Local files</footer>
+    </aside>
+
+    <section class="results-panel" aria-label="Generated images">
+      <div class="preview-heading"><div><span class="eyebrow">WORKSPACE</span><h2 id="preview-title">Your next image starts here.</h2></div><span class="result-count" id="result-count"></span></div>
+      <div class="job-status" id="job-status" role="status" aria-live="polite" hidden>
+        <div class="job-status-row"><span class="job-indicator" id="job-indicator" aria-hidden="true"></span><strong id="job-phase">Preparing</strong><span class="job-elapsed" id="job-elapsed"></span></div>
+        <p id="job-message"></p>
+        <div class="progress-track" id="progress-track" hidden><div class="progress-bar" id="progress-bar"></div></div>
+      </div>
+
+      <div class="preview-stage" id="preview-stage">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-frame" aria-hidden="true"><svg viewBox="0 0 120 120"><path d="M21 42V21h21M78 21h21v21M99 78v21H78M42 99H21V78"/><path class="empty-landscape" d="m30 83 23-27 17 18 10-11 12 20M82 41a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/></svg></div>
+          <h3>Your canvas is ready.</h3>
+          <p>Choose a model and describe an image.</p>
+        </div>
+        <img id="preview-image" alt="" hidden>
+        <div class="image-load-error" id="image-load-error" role="alert" hidden>The image couldn’t be loaded. Try opening it in a new tab.</div>
+      </div>
+
+      <div class="image-details" id="image-details" hidden>
+        <div class="image-details-top"><div><span class="image-model" id="image-model"></span><p class="image-specs" id="image-specs"></p></div><div class="image-actions"><button type="button" class="quiet-button" id="reuse">Reuse prompt</button><a class="quiet-button" id="animate-image">Animate ↗</a><a class="quiet-button" id="metadata-link" target="_blank" rel="noopener">Details</a><a class="quiet-button" id="full-image-link" target="_blank" rel="noopener" aria-label="Open full-size image">Full size ↗</a><a class="save-button" id="download-image" download>Save image ↓</a></div></div>
+        <p class="image-prompt" id="image-prompt"></p>
+      </div>
+
+      <section class="gallery-section" aria-label="Recent images">
+        <div class="gallery-heading"><h2>Recent images</h2><span id="gallery-hint">Saved locally</span></div>
+        <div class="gallery" id="gallery"><p class="gallery-empty">Your generated images will collect here.</p></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="shutdown-dialog">
+    <h2>Stop Local Image Lab?</h2>
+    <p>This stops the local server. Your saved images stay in the outputs folder. Use the desktop launcher to open the app again.</p>
+    <div class="dialog-actions"><button type="button" class="quiet-button" id="shutdown-back">Keep running</button><button type="button" class="save-button" id="shutdown-confirm">Stop server</button></div>
+  </dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>
