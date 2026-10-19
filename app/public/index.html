@@ -38,46 +38,109 @@
           <details class="model-note" id="model-note" hidden><summary>Setup details</summary><div id="model-missing"></div></details>
         </section>
 
-        <section class="control-section mode-section" id="mode-section" hidden>
-          <div class="section-heading"><span>Mode</span><span class="info-anchor" data-info-text="Create starts with a text description. Edit uses your uploaded images as references."></span></div>
-          <div class="mode-options" role="group" aria-label="Generation mode"><button type="button" class="mode-button selected" data-mode="create" aria-pressed="true">Create image</button><button type="button" class="mode-button" data-mode="edit" aria-pressed="false">Edit images</button></div>
-        </section>
-
         <section class="control-section reference-section" id="reference-section" hidden>
-          <div class="section-heading"><label for="reference-files">Reference images</label><span class="reference-count" id="reference-count"></span><span class="info-anchor" id="reference-info" data-info-text="Add PNG, JPG or WebP images, up to 10 MB each. References are numbered in upload order."></span></div>
+          <div class="section-heading"><label for="reference-files">Reference images <span class="optional">OPTIONAL</span></label><span class="reference-count" id="reference-count"></span><span class="info-anchor" id="reference-info" data-info-text="Add PNG, JPG or WebP images, up to 10 MB each. References are numbered in upload order."></span></div>
           <div class="reference-list" id="reference-list"></div>
           <label class="upload-button" id="upload-label" for="reference-files"><span aria-hidden="true">＋</span><span id="upload-label-text">Add images</span></label>
           <input type="file" id="reference-files" accept="image/png,image/jpeg,image/webp" multiple class="visually-hidden">
         </section>
 
+        <section class="control-section start-section" id="start-section" hidden>
+          <div class="section-heading"><label for="start-file">Start image <span class="optional">OPTIONAL</span></label><span class="info-anchor" data-info-text="Redraws an existing picture instead of starting from random noise (image-to-image). Change strength sets how far the result can move away from it. Paint a mask to change only part of the picture and keep the rest (inpainting). Reference images can be used at the same time. You can also drag an image onto this section."></span></div>
+          <div class="start-card" id="start-card" hidden>
+            <div class="start-thumb"><img id="start-preview" alt="Start image"><canvas id="start-mask-overlay" aria-hidden="true"></canvas></div>
+            <div class="start-actions">
+              <span class="start-note" id="mask-note">Changes the whole image</span>
+              <button type="button" class="quiet-button" id="paint-mask">Paint mask</button>
+              <button type="button" class="quiet-button" id="clear-mask" hidden>Clear mask</button>
+              <button type="button" class="quiet-button" id="remove-start">Remove</button>
+            </div>
+          </div>
+          <label class="upload-button" id="start-label" for="start-file"><span aria-hidden="true">＋</span><span>Choose a start image</span></label>
+          <input type="file" id="start-file" accept="image/png,image/jpeg,image/webp" class="visually-hidden">
+          <div class="range-field" id="strength-field" hidden>
+            <div class="field-header"><label for="strength">Change strength</label><span class="range-value"><output id="strength-value" for="strength">0.75</output><span class="info-anchor" data-info-text="How much of the start image is redrawn. Low values keep the layout and colours and change details; 1 redraws everything, or everything inside the mask. Default 0.75. With a mask, 1 usually gives the cleanest replacement."></span></span></div>
+            <input type="range" class="range-input" id="strength" min="0.05" max="1" step="0.05" value="0.75">
+          </div>
+        </section>
+
         <section class="control-section prompt-section">
           <div class="section-heading"><label for="prompt" id="prompt-label">Describe your image</label><span class="info-anchor" id="prompt-info" data-info-text="Describe the subject, setting, lighting and style. A specific scene description gives the model more to work with."></span></div>
-          <textarea id="prompt" name="prompt" rows="4" required maxlength="12000" placeholder="A red canoe on a still alpine lake at dawn, mist between pine-covered mountains, soft golden light. Natural colours, medium-format film."></textarea>
-          <div class="prompt-options"><label class="toggle-label" for="blank-prompt"><input id="blank-prompt" type="checkbox"><span class="toggle-track" aria-hidden="true"></span><span>Blank prompt</span></label><span class="info-anchor" data-info-text="Sends an empty description, with no filler or prompt expansion. The model still uses its built-in conditioning, and reference images still guide edits. Transparency is off in this mode."></span></div>
+          <textarea id="prompt" name="prompt" rows="4" maxlength="12000" placeholder="A red canoe on a still alpine lake at dawn, mist between pine-covered mountains, soft golden light. Natural colours, medium-format film."></textarea>
+          <div class="prompt-options"><label class="toggle-label" for="blank-prompt"><input id="blank-prompt" type="checkbox"><span class="toggle-track" aria-hidden="true"></span><span>Blank prompt</span></label><span class="info-anchor" data-info-text="Sends no description, only an invisible blank character (⠀), so every image comes out completely different. Leaving the description empty does the same. Reference and start images still guide the result. Transparency and Avoid are off in this mode."></span></div>
           <div class="enhance-row" id="enhance-row" hidden><button type="button" class="text-button" id="enhance">Expand prompt</button><span class="info-anchor" data-info-text="Uses a local language model to add descriptive detail. Review and edit the expanded prompt before generating an image."></span></div>
         </section>
 
         <section class="control-section size-section">
-          <div class="section-heading"><span>Image size <span class="info-anchor" data-info-text="Larger images need more memory and time. Start at 512 px for edits or a quick test."></span></span><output id="dimensions">768 × 768</output></div>
+          <div class="section-heading"><span>Image size <span class="info-anchor" data-info-text="Larger images need more memory and time. Start at 512 px for edits or a quick test. Sizes are rounded to multiples of 32, up to 2048 px per side."></span></span><output id="dimensions">768 × 768</output></div>
           <div class="format-options" role="group" aria-label="Image shape">
-            <button type="button" class="format-button selected" data-format="square" aria-pressed="true"><span class="format-icon square" aria-hidden="true"></span><span>Square</span></button>
-            <button type="button" class="format-button" data-format="landscape" aria-pressed="false"><span class="format-icon landscape" aria-hidden="true"></span><span>Landscape</span></button>
-            <button type="button" class="format-button" data-format="portrait" aria-pressed="false"><span class="format-icon portrait" aria-hidden="true"></span><span>Portrait</span></button>
+            <button type="button" class="format-button selected" data-format="1:1" aria-pressed="true"><span class="format-icon square" aria-hidden="true"></span><span>Square</span></button>
+            <button type="button" class="format-button" data-format="4:3" aria-pressed="false"><span class="format-icon landscape" aria-hidden="true"></span><span>Landscape</span></button>
+            <button type="button" class="format-button" data-format="3:4" aria-pressed="false"><span class="format-icon portrait" aria-hidden="true"></span><span>Portrait</span></button>
           </div>
-          <div class="resolution-row"><label for="resolution">Long edge</label><select id="resolution" name="resolution"><option value="512">512 px · quick test</option><option value="768" selected>768 px · standard</option><option value="1024">1024 px · larger</option></select></div>
+          <div class="resolution-row"><span class="row-label"><label for="aspect">Shape</label><span class="info-anchor" data-info-text="Match uses the shape of the start image, or of reference image 1 when there is no start image, so edits are not stretched. Custom lets you type any width and height."></span></span><select id="aspect"><option value="1:1" selected>1:1 · square</option><option value="4:3">4:3 · landscape</option><option value="3:4">3:4 · portrait</option><option value="3:2">3:2 · photo</option><option value="2:3">2:3 · tall photo</option><option value="16:9">16:9 · wide</option><option value="9:16">9:16 · phone</option><option value="21:9">21:9 · cinema</option><option value="match">Match input image</option><option value="custom">Custom size</option></select></div>
+          <div class="resolution-row" id="edge-row"><label for="resolution">Long edge</label><select id="resolution" name="resolution"><option value="256">256 px · tiny test</option><option value="512">512 px · quick test</option><option value="768" selected>768 px · standard</option><option value="1024">1024 px · larger</option><option value="1280">1280 px · large</option><option value="1536">1536 px · very large</option><option value="2048">2048 px · maximum</option></select></div>
+          <div class="field-pair custom-size" id="custom-size" hidden>
+            <div><div class="field-header"><label for="custom-width">Width</label></div><input type="number" id="custom-width" min="256" max="2048" step="32" value="768"></div>
+            <div><div class="field-header"><label for="custom-height">Height</label></div><input type="number" id="custom-height" min="256" max="2048" step="32" value="768"></div>
+          </div>
+          <div class="resolution-row"><span class="row-label"><label for="batch">Images per run</label><span class="info-anchor" data-info-text="Makes several images in one go, each with the next seed (seed, seed + 1, …). The model loads once, so this is quicker than separate runs."></span></span><select id="batch"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></div>
           <div class="transparency-row" id="transparency-row" hidden><label class="toggle-label" for="transparent"><input type="checkbox" id="transparent"><span class="toggle-track" aria-hidden="true"></span><span>Transparent background</span></label><span class="info-anchor" data-info-text="Asks Qwen to produce an image with transparency. Best for a single, clearly described subject. Saved as a PNG; results depend on the model."></span></div>
         </section>
 
         <details class="advanced control-section" id="advanced">
-          <summary><span>Advanced settings <span class="info-anchor" id="fixed-settings-info" data-info-text="This model uses fixed settings." hidden></span></span><span class="summary-chevron" aria-hidden="true">⌄</span></summary>
+          <summary><span>Advanced settings</span><span class="summary-chevron" aria-hidden="true">⌄</span></summary>
           <div class="advanced-body">
             <div class="field-pair" id="numeric-settings">
-              <div id="steps-field"><div class="field-header"><label for="steps">Steps</label><span class="info-anchor" data-info-text="How many refinement passes the model makes. More steps take longer and do not always improve quality. Start with the model default."></span></div><input type="number" id="steps" name="steps" min="1" max="50" value="4" step="1" required></div>
-              <div id="cfg-field"><div class="field-header"><label for="cfg">Guidance</label><span class="info-anchor" data-info-text="How strongly the model follows the prompt (CFG). Too high can distort the image. Turbo models often work best at the supplied default."></span></div><input type="number" id="cfg" name="cfg" min="1" max="10" value="1" step="0.1" required></div>
+              <div id="steps-field"><div class="field-header"><label for="steps">Steps</label><span class="info-anchor" id="steps-info" data-info-text="How many refinement passes the model makes. More steps take longer and do not always improve quality. Start with the model default."></span></div><input type="number" id="steps" name="steps" min="1" max="100" value="16" step="1" required></div>
+              <div id="cfg-field"><div class="field-header"><label for="cfg">Guidance</label><span class="info-anchor" data-info-text="How strongly the model follows the prompt (CFG). Both models are tuned for 1, which is fastest. Above 1 switches on Avoid and makes each step slower; try 2 to 4. High values can over-saturate or distort."></span></div><input type="number" id="cfg" name="cfg" min="1" max="20" value="1" step="0.1" required></div>
+            </div>
+            <div class="field-header avoid-header"><label for="negative-prompt">Avoid</label><span class="info-anchor" data-info-text="Negative prompt: things to steer away from, such as blurry, text or watermark. Works only when Guidance is above 1. Blank prompt turns it off."></span></div>
+            <textarea id="negative-prompt" class="short-textarea" rows="2" maxlength="4000" placeholder="Set Guidance above 1 to use"></textarea>
+            <div class="field-pair sampler-pair">
+              <div><div class="field-header"><label for="sampler">Sampler</label><span class="info-anchor" data-info-text="The method used to remove noise at each step. Euler is the default for both models. Samplers marked 2× run the model twice per step, so they take about twice as long. The others are experimental on these models."></span></div><select id="sampler"></select></div>
+              <div><div class="field-header"><label for="scheduler">Schedule</label><span class="info-anchor" id="scheduler-info" data-info-text="How the noise level drops from step to step."></span></div><select id="scheduler"></select></div>
+            </div>
+            <div class="field-pair" id="noise-settings" hidden>
+              <div id="eta-field" hidden><div class="field-header"><label for="eta">Extra noise</label><span class="info-anchor" data-info-text="Only for samplers that add fresh noise while sampling (ancestral, SDE, DDIM, TCD and RES samplers). Leave empty for the sampler's own default; 0 removes the added noise and 1 is the usual amount."></span></div><input type="number" id="eta" min="0" max="2" step="0.05" placeholder="Default"></div>
+              <div id="shift-field" hidden><div class="field-header"><label for="flow-shift">Flow shift</label><span class="info-anchor" data-info-text="Spends more of the steps on the overall layout (higher) or on fine detail (lower). FLUX 3 uses 6.93. Leave empty for the default."></span></div><input type="number" id="flow-shift" min="0.1" max="20" step="0.1" placeholder="Default"></div>
             </div>
             <div class="field-header seed-header"><label for="seed">Seed</label><span class="info-anchor" data-info-text="Random fills in a new seed now. Use −1 for a fresh random seed on every generation. Reuse a seed with the same model, prompt and settings for repeatable results."></span></div>
             <div class="seed-row"><input type="number" id="seed" name="seed" min="-1" max="2147483647" value="-1" step="1" required><button type="button" class="quiet-button" id="random-seed">Random</button></div>
+            <div class="resolution-row option-row"><span class="row-label"><label for="tiling">Seamless tiling</label><span class="info-anchor" data-info-text="Makes opposite edges match, so copies of the image fit together without a visible join. Useful for textures, patterns and wallpapers."></span></span><select id="tiling"><option value="off" selected>Off</option><option value="both">Both directions</option><option value="x">Left and right</option><option value="y">Top and bottom</option></select></div>
+            <div class="resolution-row option-row"><span class="row-label"><label for="cache">Speed-up</label><span class="info-anchor" data-info-text="Reuses work between similar steps to finish sooner, at a small cost in detail. EasyCache made FLUX about 1.6 times faster in testing. Qwen Turbo has only 8 steps, so there is little to save. Off gives the best quality."></span></span><select id="cache"><option value="off" selected>Off · best quality</option><option value="easycache">EasyCache</option><option value="dbcache">DBCache</option><option value="taylorseer">TaylorSeer</option><option value="cache-dit">Cache-DiT</option><option value="spectrum">Spectrum</option></select></div>
+            <div class="transparency-row option-row"><label class="toggle-label" for="live-preview"><input type="checkbox" id="live-preview" checked><span class="toggle-track" aria-hidden="true"></span><span>Live preview</span></label><span class="info-anchor" data-info-text="Shows a rough, low-resolution view of the image after each step while it is being made. It is a quick estimate, so colour and detail look rough until the image is finished."></span></div>
             <button type="button" class="text-button" id="reset-defaults">Restore model defaults</button>
+          </div>
+        </details>
+
+        <details class="advanced control-section" id="upscale-section">
+          <summary><span>Upscale <span class="summary-state" id="upscale-state">Off</span></span><span class="summary-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="advanced-body">
+            <div class="transparency-row option-row first-option"><label class="toggle-label" for="hires"><input type="checkbox" id="hires"><span class="toggle-track" aria-hidden="true"></span><span>Upscale with a second pass</span></label><span class="info-anchor" data-info-text="Hires fix: makes the image at the chosen size, enlarges it, then redraws it at the larger size to add real detail. Takes roughly two to three times as long. The final size is shown below."></span></div>
+            <div id="hires-options" hidden>
+              <div class="field-pair">
+                <div><div class="field-header"><label for="hires-scale">Factor</label><span class="info-anchor" data-info-text="How much larger the final image is. 1.5 turns 768 px into 1152 px. The result must stay within 2048 px per side."></span></div><input type="number" id="hires-scale" min="1.1" max="4" step="0.05" value="1.5"></div>
+                <div><div class="field-header"><label for="hires-upscaler">Method</label><span class="info-anchor" data-info-text="How the image is enlarged before it is redrawn. Lanczos enlarges the finished picture and was the most reliable in testing. Latent methods enlarge the model's internal image directly; they are a little faster but can blur or ghost at a low redraw strength."></span></div><select id="hires-upscaler"></select></div>
+              </div>
+              <div class="range-field">
+                <div class="field-header"><label for="hires-strength">Redraw strength</label><span class="range-value"><output id="hires-strength-value" for="hires-strength">0.50</output><span class="info-anchor" id="hires-strength-info" data-info-text="How much the enlarged image is redrawn. Lower stays closer to the first pass; higher adds more new detail but can change things."></span></span></div>
+                <input type="range" class="range-input" id="hires-strength" min="0.05" max="1" step="0.05" value="0.5">
+              </div>
+              <div class="field-pair single-field" id="hires-steps-field"><div><div class="field-header"><label for="hires-steps">Upscale steps</label><span class="info-anchor" data-info-text="Steps for the second pass. 0 uses the same number as Steps; the redraw strength then decides how many of them run."></span></div><input type="number" id="hires-steps" min="0" max="100" step="1" value="0"></div></div>
+              <p class="field-hint" id="hires-size"></p>
+            </div>
+            <div class="resolution-row option-row" id="post-upscale-row" hidden><span class="row-label"><label for="post-upscale">Then sharpen 4×</label><span class="info-anchor" data-info-text="After the image is finished, enlarges it 4× with an upscaler model. This sharpens edges and fine detail without redrawing anything, and takes about a second per image. Only the 4× image is saved. It works with or without the second pass above."></span></span><select id="post-upscale"><option value="" selected>Off</option></select></div>
+            <p class="field-hint" id="upscaler-hint" hidden></p>
+          </div>
+        </details>
+
+        <details class="advanced control-section" id="lora-section">
+          <summary><span>LoRAs <span class="summary-state" id="lora-state">None</span></span><span class="summary-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="advanced-body">
+            <div class="lora-list" id="lora-list"></div>
+            <p class="field-hint" id="lora-hint"></p>
+            <button type="button" class="text-button" id="open-loras">Open LoRA folder</button>
           </div>
         </details>
 
@@ -107,11 +170,12 @@
           <p>Choose a model and describe an image.</p>
         </div>
         <img id="preview-image" alt="" hidden>
+        <img id="live-preview-image" class="live-preview-image" alt="Live preview of the image being made" hidden><span class="live-preview-label" id="live-preview-label" hidden>Live preview</span>
         <div class="image-load-error" id="image-load-error" role="alert" hidden>The image couldn’t be loaded. Try opening it in a new tab.</div>
       </div>
 
       <div class="image-details" id="image-details" hidden>
-        <div class="image-details-top"><div><span class="image-model" id="image-model"></span><p class="image-specs" id="image-specs"></p></div><div class="image-actions"><button type="button" class="quiet-button" id="reuse">Reuse prompt</button><a class="quiet-button" id="animate-image">Animate ↗</a><a class="quiet-button" id="metadata-link" target="_blank" rel="noopener">Details</a><a class="quiet-button" id="full-image-link" target="_blank" rel="noopener" aria-label="Open full-size image">Full size ↗</a><a class="save-button" id="download-image" download>Save image ↓</a></div></div>
+        <div class="image-details-top"><div><span class="image-model" id="image-model"></span><p class="image-specs" id="image-specs"></p></div><div class="image-actions"><button type="button" class="quiet-button" id="reuse">Reuse prompt</button><button type="button" class="quiet-button" id="use-start" title="Use this image as the start image, to redraw all or part of it">Redraw</button><button type="button" class="quiet-button" id="upscale-image" title="Save a 4× larger, sharper copy made with the upscaler model" hidden>Upscale 4×</button><button type="button" class="quiet-button" id="use-reference" title="Add this image to the reference images">Use as reference</button><a class="quiet-button" id="animate-image">Animate ↗</a><a class="quiet-button" id="metadata-link" target="_blank" rel="noopener">Details</a><a class="quiet-button" id="full-image-link" target="_blank" rel="noopener" aria-label="Open full-size image">Full size ↗</a><a class="save-button" id="download-image" download>Save image ↓</a></div></div>
         <p class="image-prompt" id="image-prompt"></p>
       </div>
 
@@ -126,6 +190,19 @@
     <h2>Stop Local Image Lab?</h2>
     <p>This stops the local server. Your saved images stay in the outputs folder. Use the desktop launcher to open the app again.</p>
     <div class="dialog-actions"><button type="button" class="quiet-button" id="shutdown-back">Keep running</button><button type="button" class="save-button" id="shutdown-confirm">Stop server</button></div>
+  </dialog>
+  <dialog id="mask-dialog" class="mask-dialog" aria-labelledby="mask-title">
+    <div class="mask-heading"><h2 id="mask-title">Paint what to change</h2><span class="info-anchor" data-info-text="Painted areas are redrawn and everything else is kept. The model works in small blocks, so edges are approximate: paint a little past the edge of the object. Change strength 1 replaces the painted area completely."></span></div>
+    <div class="mask-stage"><div class="mask-frame" id="mask-frame"><img id="mask-image" alt="Start image"><canvas id="mask-canvas" aria-label="Mask painting area"></canvas></div></div>
+    <div class="mask-tools">
+      <div class="mode-options brush-modes" role="group" aria-label="Brush"><button type="button" class="mode-button selected" data-brush="paint" aria-pressed="true" autofocus>Paint</button><button type="button" class="mode-button" data-brush="erase" aria-pressed="false">Erase</button></div>
+      <label class="brush-size" for="brush-size">Brush<input type="range" class="range-input" id="brush-size" min="1" max="30" step="1" value="8"></label>
+      <button type="button" class="quiet-button" id="mask-undo" title="Undo (Ctrl+Z)" disabled>Undo</button>
+      <button type="button" class="quiet-button" id="mask-fill">Fill</button>
+      <button type="button" class="quiet-button" id="mask-invert">Invert</button>
+      <button type="button" class="quiet-button" id="mask-clear">Clear</button>
+    </div>
+    <div class="dialog-actions"><button type="button" class="quiet-button" id="mask-cancel">Cancel</button><button type="button" class="save-button" id="mask-save">Use this mask</button></div>
   </dialog>
   <div class="toast" id="toast" role="status" hidden></div>
 </body>
