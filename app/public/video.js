@@ -2,8 +2,8 @@ import {sceneFrames,joinedSeconds} from './video-timing.mjs';
 (() => {
  'use strict';
  const $=id=>document.getElementById(id);let state=null,mode='text',firstImage=null,lastImage=null,selected=null,lastResult=null,galleryKey='',submitting=false,online=false,initialized=false,referenceImages=[],referenceVideo=null,referenceAudio=null;
- const tuningDefaults={steps:20,cfgScale:1,flowShift:12,sampler:'euler',scheduler:'simple',eta:1,negativePrompt:'',seedMode:'fixed',seed:-1,continuationStyle:'blank',directorBrief:'',storyArc:true,storyIntensity:'standard',plantedThought:''};
- const tuningIds={steps:'steps',cfgScale:'cfg-scale',flowShift:'flow-shift',sampler:'sampler',scheduler:'scheduler',eta:'eta',negativePrompt:'negative-prompt',seedMode:'seed-mode',seed:'seed',continuationStyle:'continuation-style',directorBrief:'director-brief',storyArc:'story-arc',storyIntensity:'story-intensity',plantedThought:'planted-thought'};
+ const tuningDefaults={steps:20,cfgScale:1,flowShift:12,sampler:'euler',scheduler:'simple',eta:1,negativePrompt:'',seedMode:'fixed',seed:-1,continuationStyle:'blank',directorBrief:'',storyArc:true,storyIntensity:'standard',plantedThought:'',movieSound:'natural',storyEvents:'some'};
+ const tuningIds={steps:'steps',cfgScale:'cfg-scale',flowShift:'flow-shift',sampler:'sampler',scheduler:'scheduler',eta:'eta',negativePrompt:'negative-prompt',seedMode:'seed-mode',seed:'seed',continuationStyle:'continuation-style',directorBrief:'director-brief',storyArc:'story-arc',storyIntensity:'story-intensity',plantedThought:'planted-thought',movieSound:'movie-sound',storyEvents:'story-events'};
  function readTuning(p=''){return Object.fromEntries(Object.entries(tuningIds).map(([key,id])=>[key,typeof tuningDefaults[key]==='boolean'?$(p+id).checked:typeof tuningDefaults[key]==='number'?Number($(p+id).value):$(p+id).value]));}
  function writeTuning(p,values){for(const [key,id] of Object.entries(tuningIds)){if(typeof tuningDefaults[key]==='boolean')$(p+id).checked=values[key]??tuningDefaults[key];else $(p+id).value=String(values[key]??tuningDefaults[key]);}}
  function tuningControls(p='',disabled=false,blank=false){$(p+'negative-prompt').disabled=disabled||blank||Number($(p+'cfg-scale').value)===1;$(p+'eta-row').hidden=$(p+'sampler').value!=='euler_a';$(p+'eta').disabled=disabled||$(p+'sampler').value!=='euler_a';$(p+'random-seed').disabled=disabled;}
@@ -24,7 +24,8 @@ import {sceneFrames,joinedSeconds} from './video-timing.mjs';
   const plan=state?.busy?state.job?.latestPlan:selected?.director?{...selected.director,summary:selected.director.storySummary,nextPrompt:selected.prompt}:state?.job?.latestPlan;
   $('story-notes').hidden=!plan;if(!plan)return;
   const label=({opening:'Opening','opening-and-ending':'Opening & ending',exploring:'Exploring',developing:'Developing',converging:'Bringing actions together','preparing-finale':'Preparing the finale',resolving:'Resolving the action',ending:'Finale'})[plan.phase]||'Continuing';
-  $('story-through').textContent=label+(plan.reviewedClipIndex?' · Reviewed through clip '+plan.reviewedClipIndex:'');
+  const surprise=plan.storyEvent?' · '+(plan.storyEvent.tier==='follow-up'?'Payoff: ':'Surprise: ')+plan.storyEvent.text:'';
+  $('story-through').textContent=label+(plan.reviewedClipIndex?' · Reviewed through clip '+plan.reviewedClipIndex:'')+surprise;
   $('story-warning').hidden=!plan.warnings?.length;$('story-warning').textContent=(plan.warnings||[]).join(' ');
   $('story-result').textContent=plan.visibleResult||'';$('story-result').hidden=!plan.visibleResult;$('story-result-label').hidden=!plan.visibleResult;$('story-summary').textContent=plan.summary;$('story-observed').textContent=plan.observed;$('story-next').textContent=plan.nextPrompt;$('story-record').href='/api/video/file?name='+encodeURIComponent(plan.recordFile);
  }
@@ -136,7 +137,7 @@ import {sceneFrames,joinedSeconds} from './video-timing.mjs';
  function randomizeSeed(p){const input=$(p+'seed');let value=crypto.getRandomValues(new Uint32Array(1))[0]&0x7fffffff;if(value===Number(input.value))value=(value+1)%2147483648;input.value=String(value);if(p){liveDirty=true;liveControls();}}
  $('random-seed').onclick=()=>randomizeSeed('');$('live-random-seed').onclick=()=>randomizeSeed('live-');
  for(const id of ['cfg-scale','sampler','seed-mode','steps','size'])$(id).addEventListener('change',controls);
- $('reset-tuning').onclick=()=>{writeTuning('',{...tuningDefaults,seed:Number($('seed').value),seedMode:$('seed-mode').value,continuationStyle:$('continuation-style').value,directorBrief:$('director-brief').value,storyArc:$('story-arc').checked,storyIntensity:$('story-intensity').value,plantedThought:$('planted-thought').value});controls();};
+ $('reset-tuning').onclick=()=>{writeTuning('',{...tuningDefaults,seed:Number($('seed').value),seedMode:$('seed-mode').value,continuationStyle:$('continuation-style').value,directorBrief:$('director-brief').value,storyArc:$('story-arc').checked,storyIntensity:$('story-intensity').value,plantedThought:$('planted-thought').value,movieSound:$('movie-sound').value,storyEvents:$('story-events').value});controls();};
  for(const event of ['input','change'])$('live-form').addEventListener(event,()=>{liveDirty=true;liveControls();});
  $('live-reload').onclick=()=>{loadLive();liveError('');renderLive();};
  $('live-form').onsubmit=async e=>{e.preventDefault();if($('live-apply').disabled||!$('live-form').reportValidity())return;const draft={...readTuning('live-'),prompt:$('live-prompt').value.trim()};const settings=Object.fromEntries(Object.entries(draft).filter(([key,value])=>value!==liveBaseline[key]));if(!Object.keys(settings).length){liveError('Change a setting before applying.');return;}liveSubmitting=true;liveControls();try{liveError('');await api('/api/video/update',{id:liveJobId,scope:$('live-scope').value,settings});liveDirty=false;}catch(err){liveError(err.message);}finally{liveSubmitting=false;await poll();}};
